@@ -926,10 +926,11 @@ async function fetchLivePrice(sym){
   if(priceEl) priceEl.style.opacity='0.5';
 
   try {
-    const proxy = 'https://corsproxy.io/?';
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
-    const res = await fetch(proxy + encodeURIComponent(url));
-    const json = await res.json();
+    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxy);
+    const wrapper = await res.json();
+    const json = JSON.parse(wrapper.contents);
     const q = json.chart.result[0].meta;
     const price = q.regularMarketPrice;
     const prev = q.chartPreviousClose || q.previousClose;
