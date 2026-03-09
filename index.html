@@ -891,13 +891,15 @@ document.getElementById('wlNI').addEventListener('keydown',e=>{if(e.key==='Enter
 function selectStock(sym){
   activeSym=sym;
   renderWLBody();
-  const s=DB[sym]; if(!s)return;
-  renderMain();
   // Switch to terminal tab
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector('.nav-tab').classList.add('active');
-  // Fetch live price in background
-  fetchLivePrice(sym);
+  if(DB[sym]){
+    renderMain();
+    fetchLivePrice(sym);
+  } else {
+    renderLiveStock(sym);
+  }
 }
 
 // Yahoo Finance suffix map — SME stocks not available
@@ -1971,17 +1973,28 @@ document.getElementById('iiInp').addEventListener('keydown',e=>{if(e.key==='Ente
 // SEARCH
 // ═══════════════════════════════════════════════
 const si2=document.getElementById('si'),sr2=document.getElementById('sr');
+let srTimer=null;
 si2.addEventListener('input',function(){
-  const q=this.value.trim().toUpperCase();if(!q){sr2.classList.remove('open');return;}
+  const q=this.value.trim().toUpperCase();
+  if(!q){sr2.classList.remove('open');return;}
+  // First show DB matches instantly
   const m=Object.entries(DB).filter(([sym,s])=>sym.includes(q)||s.name.toUpperCase().includes(q));
-  if(!m.length){sr2.classList.remove('open');return;}
-  sr2.innerHTML=m.map(([sym,s])=>`<div class="sr-item" onclick="srSelect('${sym}')"><div><div class="sr-sym">${sym}</div><div class="sr-name">${s.name}</div></div><span class="sr-tag">${s.sector.split('·')[0].trim()}</span></div>`).join('');
+  const dbHTML=m.map(([sym,s])=>`<div class="sr-item" onclick="srSelect('${sym}')"><div><div class="sr-sym">${sym}</div><div class="sr-name">${s.name}</div></div><span class="sr-tag">${s.sector.split('·')[0].trim()}</span></div>`).join('');
+  // Add "search NSE" option for any query
+  const liveRow=`<div class="sr-item" onclick="srSelectLive('${q}')" style="border-top:1px solid var(--border);opacity:0.8;"><div><div class="sr-sym" style="color:var(--accent);">⌕ ${q}</div><div class="sr-name">Search NSE live data</div></div><span class="sr-tag" style="color:var(--accent);">LIVE</span></div>`;
+  sr2.innerHTML=dbHTML+liveRow;
   sr2.classList.add('open');
 });
 function srSelect(sym){
   si2.value='';sr2.classList.remove('open');
   if(!watchlists[activeWL].stocks.includes(sym)){watchlists[activeWL].stocks.push(sym);}
-  selectStock(sym);
+  selectStock(sym);renderWLBody();
+}
+function srSelectLive(sym){
+  sym=sym.toUpperCase().replace('.NS','').replace('.BSE','');
+  si2.value='';sr2.classList.remove('open');
+  if(!watchlists[activeWL].stocks.includes(sym)){watchlists[activeWL].stocks.push(sym);}
+  selectStock(sym);renderWLBody();
 }
 document.addEventListener('click',e=>{if(!e.target.closest('.sw'))sr2.classList.remove('open');});
 
@@ -2046,6 +2059,107 @@ renderWLBody();
 renderII();
 renderAlerts();
 setTimeout(()=>{selectStock('RELIANCE');},80);
+
+// ═══════════════════════════════════════════════
+// LIVE STOCK VIEW — for stocks not in DB
+// ═══════════════════════════════════════════════
+async function renderLiveStock(sym){
+  const panel = document.getElementById('centerPanel');
+  panel.innerHTML = `<div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;"><span class="ai-dot"></span> LOADING ${sym} FROM LIVE DATA...</div>`;
+
+  try {
+    const res = await fetch(`/api/quote?sym=${sym}.NS&full=1`);
+    const d = await res.json();
+    if(d.error) throw new Error(d.error);
+
+    // Add to DB temporarily so watchlist shows price
+    if(!DB[sym]){
+      DB[sym] = {
+        name: d.name, full: d.name + ' · NSE',
+        sector: d.fundamentals?.sector || 'Unknown',
+        sectorKey: 'general',
+        ind: 'general',
+        price: d.price, chg: d.chg, pct: d.pct, up: d.up,
+        health: 5.0, illiq: false, cap: 'unknown',
+        ath: d.w52h, atl: d.w52l, w52h: d.w52h, w52l: d.w52l,
+        metrics: [], warns: [], actions: [], filings: [],
+        aiS: '', fitnessQ: [], shareholding: null,
+      };
+    }
+
+    const f = d.fundamentals || {};
+    const up = d.up;
+    const clr = up ? 'var(--green)' : 'var(--red)';
+    const arr = up ? '▲' : '▼';
+
+    const metricCard = (label, val, sub) => val == null ? '' :
+      `<div style="background:var(--bg3);border:1px solid var(--border);padding:10px 12px;">
+        <div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:1px;margin-bottom:4px;">${label}</div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);">${val}</div>
+        ${sub ? `<div style="font-size:9px;color:var(--text3);margin-top:2px;">${sub}</div>` : ''}
+      </div>`;
+
+    panel.innerHTML = `
+      <div class="hero">
+        <div class="hero-row">
+          <div>
+            <div class="s-sym ${up?'up':'dn'}">${sym}</div>
+            <div class="s-full">${d.name} · NSE <span class="live-badge" style="font-family:var(--mono);font-size:8px;color:var(--green);margin-left:8px;letter-spacing:1px;">● LIVE</span></div>
+            ${f.sector ? `<div style="font-size:10px;color:var(--text3);margin-top:3px;">${f.sector} · ${f.industry||''}</div>` : ''}
+          </div>
+          <div style="text-align:right;">
+            <div class="s-price ${up?'up':'dn'}">₹${d.price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+            <div class="s-chg ${up?'up':'dn'}">${arr} ${Math.abs(d.chg).toFixed(2)} &nbsp; ${up?'+':''}${d.pct.toFixed(2)}%</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">KEY METRICS — LIVE FROM YAHOO FINANCE</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+          ${metricCard('P/E RATIO', f.pe?.toFixed(1), 'Trailing twelve months')}
+          ${metricCard('P/B RATIO', f.pb?.toFixed(2), 'Price to book value')}
+          ${metricCard('ROE', f.roe ? f.roe+'%' : null, 'Return on equity')}
+          ${metricCard('DEBT / EQUITY', f.debtToEquity?.toFixed(2), 'Total debt to equity')}
+          ${metricCard('REVENUE', f.revenue ? '₹'+f.revenue : null, 'Trailing twelve months')}
+          ${metricCard('NET INCOME', f.netIncome ? '₹'+f.netIncome : null, 'Trailing twelve months')}
+          ${metricCard('PROFIT MARGIN', f.profitMargin ? f.profitMargin+'%' : null, 'Net profit margin')}
+          ${metricCard('REV GROWTH', f.revenueGrowth ? (parseFloat(f.revenueGrowth)>=0?'+':'')+f.revenueGrowth+'%' : null, 'YoY revenue growth')}
+          ${metricCard('MARKET CAP', f.marketCap ? '₹'+f.marketCap : null, '')}
+          ${metricCard('EPS', f.eps?.toFixed(2), 'Trailing EPS')}
+          ${metricCard('DIV YIELD', f.divYield ? f.divYield+'%' : null, 'Annual dividend yield')}
+          ${metricCard('BETA', f.beta?.toFixed(2), 'Volatility vs market')}
+        </div>
+      </div>
+
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">PRICE RANGE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          ${metricCard('52W HIGH', d.w52h ? '₹'+d.w52h.toLocaleString('en-IN') : null, '')}
+          ${metricCard('52W LOW', d.w52l ? '₹'+d.w52l.toLocaleString('en-IN') : null, '')}
+          ${metricCard("DAY HIGH", d.high ? '₹'+d.high.toLocaleString('en-IN') : null, '')}
+          ${metricCard("DAY LOW", d.low ? '₹'+d.low.toLocaleString('en-IN') : null, '')}
+        </div>
+      </div>
+
+      ${f.description ? `
+      <div style="padding:10px 14px;border-bottom:1px solid var(--border);">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;margin-bottom:6px;">ABOUT</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.7;">${f.description.slice(0,600)}${f.description.length>600?'...':''}</div>
+        ${f.employees ? `<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:6px;">Employees: ${f.employees.toLocaleString('en-IN')} · ${f.website||''}</div>` : ''}
+      </div>` : ''}
+
+      <div style="padding:10px 14px;">
+        <div class="ai-refresh" onclick="askAIQuery('Give me a 5-sentence plain language research summary of ${sym} (${f.sector||''}). Cover: what the company does, its financial health, key risks, and whether it looks overvalued or undervalued right now.')">⬡ AI RESEARCH SUMMARY FOR ${sym}</div>
+        <div style="margin-top:8px;font-size:10px;color:var(--text3);">Volume: ${d.vol?.toLocaleString('en-IN')||'—'} &nbsp;·&nbsp; Insider holding: ${f.insiderPct||'—'}% &nbsp;·&nbsp; Institutional: ${f.instPct||'—'}%</div>
+      </div>`;
+
+    renderWLBody();
+
+  } catch(e){
+    panel.innerHTML = `<div style="padding:20px;font-size:12px;color:var(--red);">Failed to load ${sym}: ${e.message}</div>`;
+  }
+}
 </script>
 </body>
 </html>
