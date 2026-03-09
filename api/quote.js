@@ -13,7 +13,12 @@ export default async function handler(req, res) {
     const priceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
     const priceRes = await fetch(priceUrl, { headers });
     const priceJson = await priceRes.json();
-    const meta = priceJson.chart.result[0].meta;
+    const priceResult = priceJson?.chart?.result;
+    if (!priceResult || priceResult.length === 0) {
+      const errMsg = priceJson?.chart?.error?.description || 'Ticker not found on Yahoo Finance';
+      return res.status(404).json({ error: errMsg });
+    }
+    const meta = priceResult[0].meta;
 
     const price = meta.regularMarketPrice;
     const prev  = meta.chartPreviousClose || meta.previousClose;
@@ -41,7 +46,12 @@ export default async function handler(req, res) {
       const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
       const summaryRes = await fetch(summaryUrl, { headers });
       const summaryJson = await summaryRes.json();
-      const r = summaryJson.quoteSummary.result[0];
+      const summaryResult = summaryJson?.quoteSummary?.result;
+      if (!summaryResult || summaryResult.length === 0) {
+        // Return base data without fundamentals rather than crashing
+        return res.status(200).json({ ...base, fundamentals: {} });
+      }
+      const r = summaryResult[0];
 
       const sd  = r.summaryDetail        || {};
       const ks  = r.defaultKeyStatistics  || {};
