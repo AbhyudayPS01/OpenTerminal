@@ -659,63 +659,10 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
 // ═══════════════════════════════════════════════
 // STOCK DATABASE
 // ═══════════════════════════════════════════════
-const DB = {
-  RELIANCE:{name:'Reliance Industries',full:'Reliance Industries Ltd · NSE · NIFTY 50',sector:'ENERGY · TELECOM · RETAIL',ind:'conglomerate',sectorKey:'conglomerate',price:2847.60,chg:34.20,pct:1.22,up:true,health:7.2,illiq:false,cap:'large',
-    ath:3024.90,atl:866.35,w52h:3024.90,w52l:2180.00,
-    metrics:[{n:'P/E Ratio',v:'28.4x',s:'warn',ind:'conglomerate'},{n:'P/B Ratio',v:'2.1x',s:'good',ind:'conglomerate'},{n:'ROE',v:'9.8%',s:'',ind:'conglomerate'},{n:'Debt/Equity',v:'0.44',s:'good',ind:'conglomerate'},{n:'Revenue TTM',v:'₹9.74T',s:'',ind:'conglomerate'},{n:'Net Profit',v:'₹679B',s:'',ind:'conglomerate'},{n:'EV/EBITDA',v:'14.2x',s:'',ind:'conglomerate'},{n:'Div Yield',v:'0.38%',s:'',ind:'conglomerate'},{n:'Mkt Cap',v:'₹19.3T',s:'',ind:'conglomerate'}],
-    warns:[{t:'yellow',i:'⚠',tx:'<strong>Promoter pledging at 8.3%</strong> — Some promoter shares are pledged. Not alarming yet, but watch. Above 25% is a red flag.'},{t:'green',i:'✓',tx:'<strong>Debt reducing</strong> — Net debt down 14% YoY. Positive for long-term investors.'}],
-    aiS:'Reliance Industries reported strong Q3 with revenue up 9.7% YoY. Jio drives growth at 480Mn+ subscribers. Retail shows margin pressure. Management tone: confident. Key risk: high capex in green energy pressures free cash flow for 2–3 years. 28 analyst buy ratings.',
-    filings:[{t:'09:41',tag:'RESULTS',tx:'Q3 FY25 PAT ₹18,540 Cr — up 11.2% YoY.',ai:'Revenue beat. Margin stable.'},{t:'Yesterday',tag:'CON CALL',tx:'Q3 earnings call transcript uploaded.',ai:'Tone: Confident. Jio guidance raised.'},{t:'Feb 28',tag:'PLEDGE',tx:'Promoter pledged 1.2Cr shares. Total 8.3%.',ai:'Slight increase. Watch this.'}],
-    shareholding:[{q:'Q3 FY25',promoter:'50.3',fii:'23.7',dii:'14.2',public:'11.8'},{q:'Q2 FY25',promoter:'50.3',fii:'22.9',dii:'14.6',public:'12.2'},{q:'Q1 FY25',promoter:'50.3',fii:'22.1',dii:'15.0',public:'12.6'},{q:'Q4 FY24',promoter:'50.3',fii:'21.5',dii:'15.3',public:'12.9'}],
-    actions:[{date:'Aug 19',type:'div',label:'DIVIDEND',text:'Final Dividend ₹10 per share',sub:'Ex-date: Aug 19, 2025'},{date:'Apr 12',type:'agm',label:'AGM',text:'Annual General Meeting',sub:'Venue: Mumbai'},{date:'Oct 28',type:'bonus',label:'BONUS',text:'Bonus issue 1:1 announced',sub:'Record date: Oct 28, 2024'}],
-    peers:['TCS','HDFCBANK','ICICIBANK','WIPRO','ADANIENT','TATAMOTORS','BPCL'],
-    fitnessQ:[{q:'Reliance is a ₹19 trillion company with business in oil, telecom, and retail. This is a long-term, large-cap investment. Do you plan to hold this for at least 2–3 years?',risk:'medium'},{q:'Reliance\'s free cash flow is under pressure due to heavy investment in green energy. Short-term profits may be impacted. Are you comfortable with this?',risk:'low'}]
-  },
-  TCS:{name:'Tata Consultancy',full:'TCS Ltd · NSE · NIFTY 50',sector:'INFORMATION TECHNOLOGY',ind:'it',sectorKey:'it',price:3912.00,chg:21.10,pct:0.54,up:true,health:8.8,illiq:false,cap:'large',
-    ath:4585.00,atl:1506.05,w52h:4585.00,w52l:3591.00,
-    metrics:[{n:'P/E Ratio',v:'27.1x',s:'good',ind:'it'},{n:'P/B Ratio',v:'13.2x',s:'warn',ind:'it'},{n:'ROE',v:'51.4%',s:'good',ind:'it'},{n:'Debt/Equity',v:'0.01',s:'good',ind:'it'},{n:'Revenue TTM',v:'₹2.41T',s:'',ind:'it'},{n:'Net Profit',v:'₹463B',s:'',ind:'it'},{n:'Div Yield',v:'1.74%',s:'good',ind:'it'},{n:'EBIT Margin',v:'24.5%',s:'good',ind:'it'},{n:'Mkt Cap',v:'₹14.2T',s:'',ind:'it'}],
-    warns:[{t:'green',i:'✓',tx:'<strong>Zero debt company</strong> — TCS carries virtually no debt. Exceptional financial strength.'},{t:'yellow',i:'⚠',tx:'<strong>Revenue growth slowing</strong> — IT spending globally cooled. Revenue growth dropped from 12% to 4% YoY.'}],
-    aiS:'TCS is one of the financially strongest companies in India — zero debt, 51% ROE, consistent dividend payer. Main concern is slowing revenue growth as global IT spending cools. Management expects recovery in H2 FY26. Long-term fundamentals intact.',
-    filings:[{t:'09:20',tag:'RESULTS',tx:'Q3 FY25 revenue ₹63,973 Cr — up 5.6% YoY.',ai:'Margin held. Growth modest.'},{t:'Jan 15',tag:'DEAL WIN',tx:'₹4,200 Cr BSNL deal won.',ai:'Government vertical growing.'}],
-    shareholding:[{q:'Q3 FY25',promoter:'72.3',fii:'13.1',dii:'8.4',public:'6.2'},{q:'Q2 FY25',promoter:'72.3',fii:'13.8',dii:'8.1',public:'5.8'},{q:'Q1 FY25',promoter:'72.3',fii:'14.2',dii:'7.9',public:'5.6'},{q:'Q4 FY24',promoter:'72.3',fii:'14.5',dii:'7.7',public:'5.5'}],
-    actions:[{date:'Jan 15',type:'div',label:'DIVIDEND',text:'Interim Dividend ₹10 per share',sub:'Ex-date: Jan 15, 2025'},{date:'Apr 18',type:'div',label:'DIVIDEND',text:'Final Dividend ₹28 per share',sub:'Record date: Apr 22, 2025'}],
-    peers:['INFY','WIPRO','HCLTECH','TECHM','LTIM','PERSISTENT','COFORGE'],
-    fitnessQ:[{q:'TCS is a blue-chip IT company with zero debt and strong dividends. Revenue growth has slowed to 4%. Are you investing for the long term (3+ years)?',risk:'low'}]
-  },
-  HDFCBANK:{name:'HDFC Bank',full:'HDFC Bank Ltd · NSE · NIFTY 50',sector:'PRIVATE BANKING',ind:'bank',sectorKey:'bank',price:1647.35,chg:-5.15,pct:-0.31,up:false,health:7.9,illiq:false,cap:'large',
-    ath:1794.00,atl:738.75,w52h:1794.00,w52l:1363.45,
-    metrics:[{n:'P/B Ratio',v:'2.4x',s:'good',ind:'bank'},{n:'P/E Ratio',v:'18.2x',s:'good',ind:'bank'},{n:'NIM',v:'3.4%',s:'',ind:'bank'},{n:'GNPA',v:'1.26%',s:'good',ind:'bank'},{n:'ROE',v:'16.1%',s:'good',ind:'bank'},{n:'CAR',v:'18.8%',s:'good',ind:'bank'},{n:'Loan Growth',v:'+10.8%',s:'',ind:'bank'},{n:'CASA Ratio',v:'38.2%',s:'',ind:'bank'},{n:'Mkt Cap',v:'₹12.5T',s:'',ind:'bank'}],
-    warns:[{t:'green',i:'✓',tx:'<strong>GNPA at 1.26%</strong> — Gross bad loans very low. Best-in-class asset quality.'},{t:'yellow',i:'⚠',tx:'<strong>Deposit growth lagging</strong> — Bank needs more deposits to sustain current lending pace.'}],
-    aiS:"HDFC Bank remains India's most trusted private bank. Post-merger integration complete. P/B of 2.4x is reasonable for this quality. GNPA of 1.26% is best-in-class. Short-term headwind: deposit mobilization pressure.",
-    filings:[{t:'09:15',tag:'CIRCULAR',tx:'FD rates revised up 25bps across 1Y–3Y.',ai:'Signals liquidity confidence.'},{t:'Jan 22',tag:'RESULTS',tx:'Q3 FY25 PAT ₹16,736 Cr up 2.2% YoY.',ai:'Steady. Margin pressure watched.'}],
-    shareholding:[{q:'Q3 FY25',promoter:'0.0',fii:'54.7',dii:'26.1',public:'19.2'},{q:'Q2 FY25',promoter:'0.0',fii:'53.9',dii:'26.8',public:'19.3'},{q:'Q1 FY25',promoter:'0.0',fii:'53.1',dii:'27.2',public:'19.7'},{q:'Q4 FY24',promoter:'0.0',fii:'52.4',dii:'27.9',public:'19.7'}],
-    actions:[{date:'Apr 19',type:'div',label:'DIVIDEND',text:'Final Dividend ₹19.5 per share',sub:'Record date: Apr 19, 2025'},{date:'Jul 19',type:'agm',label:'AGM',text:'Annual General Meeting FY25',sub:'Virtual meeting'}],
-    peers:['ICICIBANK','KOTAKBANK','AXISBANK','SBIN','INDUSIND','FEDERALBNK','RBLBANK'],
-    fitnessQ:[{q:'HDFC Bank is a well-managed private bank. Banking stocks carry NPA risk during economic downturns. Do you understand that bank stock valuations are driven by P/B ratio, not P/E?',risk:'low'},{q:'HDFC Bank has no promoter holding — it is institutionally owned. FII holding at 54.7% means any global sell-off can cause temporary stock price decline. Are you okay with short-term volatility?',risk:'medium'}]
-  },
-  ZOMATO:{name:'Eternal Ltd',full:'Eternal Ltd (formerly Zomato) · NSE',sector:'FOOD DELIVERY · QUICK COMMERCE',ind:'internet',sectorKey:'internet',price:224.40,chg:8.90,pct:4.13,up:true,health:5.1,illiq:false,cap:'large',
-    ath:304.70,atl:40.55,w52h:304.70,w52l:141.20,
-    metrics:[{n:'P/E Ratio',v:'312x',s:'danger',ind:'internet'},{n:'P/B Ratio',v:'9.8x',s:'warn',ind:'internet'},{n:'ROE',v:'3.1%',s:'warn',ind:'internet'},{n:'Debt/Equity',v:'0.02',s:'good',ind:'internet'},{n:'Revenue TTM',v:'₹147B',s:'',ind:'internet'},{n:'Net Profit',v:'₹3.5B',s:'warn',ind:'internet'},{n:'Rev Growth',v:'+69%',s:'good',ind:'internet'},{n:'Mkt Cap',v:'₹1.98T',s:'warn',ind:'internet'},{n:'Cash',v:'₹127B',s:'good',ind:'internet'}],
-    warns:[{t:'red',i:'🚨',tx:'<strong>P/E of 312x — extremely high</strong> — You pay ₹312 for every ₹1 of profit. This is a bet on future growth, not current earnings. Very high risk.'},{t:'yellow',i:'⚠',tx:'<strong>Just turned profitable</strong> — Thin profitability could reverse if competition increases.'},{t:'orange',i:'⚠',tx:'<strong>Noise alert</strong> — This stock receives heavy YouTube and social media coverage. Ensure your decision is data-based, not hype-based.'}],
-    aiS:"Zomato is high-growth, high-risk. The market prices in massive future growth from Blinkit. Current profits are thin. Suitable only for investors who understand they're buying future potential. Volatility will be high.",
-    filings:[{t:'Feb 12',tag:'RESULTS',tx:'Q3 PAT ₹59 Cr vs loss ₹346 Cr YoY. Revenue +69%.',ai:'Profitable but thin. Growth intact.'}],
-    shareholding:[{q:'Q3 FY25',promoter:'0.0',fii:'51.2',dii:'18.3',public:'30.5'},{q:'Q2 FY25',promoter:'0.0',fii:'49.8',dii:'19.1',public:'31.1'},{q:'Q1 FY25',promoter:'0.0',fii:'48.2',dii:'20.4',public:'31.4'},{q:'Q4 FY24',promoter:'0.0',fii:'46.1',dii:'21.8',public:'32.1'}],
-    actions:[{date:'Mar 15',type:'agm',label:'AGM',text:'Annual General Meeting FY25',sub:'Mumbai'}],
-    peers:['SWIGGY','NYKAA','MAMAEARTH','PAYTM','POLICYBZR','CARTRADE','EASEMYTRIP'],
-    fitnessQ:[{q:'Zomato is trading at 312x its annual profit. You are paying a very high price hoping profits will grow massively. If growth disappoints, the stock could fall 40–60%. Are you aware of this risk?',risk:'high'},{q:'This stock frequently appears in social media tips and YouTube videos. Have you arrived at this decision independently using data, not based on someone else\'s tip?',risk:'high'},{q:'Do you have other investments that are more stable? High-risk stocks like this should not be more than 10–15% of your total portfolio.',risk:'medium'}]
-  },
-  SMCAP499:{name:'Indo Agri Chem (SME)',full:'Indo Agri Chem Ltd · NSE SME',sector:'CHEMICALS · SME BOARD',ind:'sme',sectorKey:'sme',price:847.00,chg:42.35,pct:5.26,up:true,health:3.2,illiq:true,cap:'sme',
-    ath:912.00,atl:48.20,w52h:912.00,w52l:310.00,
-    metrics:[{n:'P/E Ratio',v:'68.4x',s:'danger',ind:'sme'},{n:'Avg Daily Vol',v:'3,200',s:'danger',ind:'sme'},{n:'Float',v:'12%',s:'danger',ind:'sme'},{n:'Promoter Hold',v:'71.4%',s:'warn',ind:'sme'},{n:'Revenue TTM',v:'₹48 Cr',s:'',ind:'sme'},{n:'Net Profit',v:'₹6.2 Cr',s:'',ind:'sme'},{n:'Active Trade Days',v:'18/90',s:'danger',ind:'sme'},{n:'Auditor Flag',v:'NONE',s:'good',ind:'sme'},{n:'Pledge %',v:'31.2%',s:'danger',ind:'sme'}],
-    warns:[{t:'red',i:'🚨',tx:'<strong>ILLIQUID — EXTREME CAUTION</strong> — Traded meaningfully on only 18 of last 90 days. One small order can move price 5–10%. Exiting may be very difficult.'},{t:'red',i:'⚠',tx:'<strong>Promoter pledge 31.2%</strong> — Over 30% of promoter shares pledged. Forced selling can crash the stock rapidly.'},{t:'red',i:'⚠',tx:'<strong>P/E 68x for a small company</strong> — Priced for perfection. Any earnings miss could cause a sharp fall.'}],
-    aiS:"This is a high-risk SME stock. Low liquidity + high promoter pledge + elevated valuation — this combination is dangerous for retail investors. Do not invest based on tips or price momentum alone. Read the annual report carefully.",
-    filings:[{t:'Mar 1',tag:'PLEDGE',tx:'Promoter pledged 2.4L additional shares. Total 31.2%.',ai:'Red flag. Pledge crossed 30%.'}],
-    shareholding:[{q:'Q3 FY25',promoter:'71.4',fii:'0.0',dii:'2.1',public:'26.5'},{q:'Q2 FY25',promoter:'71.4',fii:'0.0',dii:'1.8',public:'26.8'},{q:'Q1 FY25',promoter:'71.4',fii:'0.0',dii:'1.4',public:'27.2'},{q:'Q4 FY24',promoter:'69.8',fii:'0.0',dii:'1.2',public:'29.0'}],
-    actions:[{date:'Mar 20',type:'agm',label:'AGM',text:'AGM FY25',sub:'Registered office'}],
-    peers:['AARTI','VINATI','NOCIL','CLEAN','FINEORG','TATACHEM','DEEPAKNI'],
-    fitnessQ:[{q:'This is an SME stock that traded on only 18 of the last 90 days. If you buy ₹50,000 of this stock and need to sell urgently, you may not find buyers. Are you prepared to be locked in for 2+ years?',risk:'high'},{q:'The promoter has pledged 31.2% of their shares as loan collateral. If the stock falls, lenders can force-sell these shares, crashing the price further. Do you fully understand this risk?',risk:'high'},{q:'Have you read this company\'s audited annual report and verified their claimed revenue of ₹48 Cr independently?',risk:'high'}]
-  }
-};
+const DB = {};
+// Seed watchlist with default stocks — prices/fundamentals loaded live
+const DEFAULT_STOCKS = ['RELIANCE','TCS','HDFCBANK','ZOMATO','SMCAP499'];
+
 
 // ═══════════════════════════════════════════════
 // SECTOR INTELLIGENCE
@@ -798,7 +745,7 @@ const MKB = {
 // ═══════════════════════════════════════════════
 // WATCHLISTS STATE
 // ═══════════════════════════════════════════════
-let watchlists=[{name:'MY STOCKS',stocks:['RELIANCE','TCS','HDFCBANK','ZOMATO','SMCAP499']},{name:'NIFTY PICKS',stocks:['RELIANCE','TCS','HDFCBANK']},{name:'HIGH RISK',stocks:['ZOMATO','SMCAP499']}];
+let watchlists=[{name:'MY STOCKS',stocks:['RELIANCE','TCS','HDFCBANK','ZOMATO']},{name:'NIFTY PICKS',stocks:['INFY','SBIN','BHARTIARTL']},{name:'HIGH RISK',stocks:['ZOMATO','ADANIENT']}];
 let activeWL=0,activeSym='RELIANCE',activeCtab='overview',activeRtab='filings',wlMode='add';
 
 // Portfolio state
@@ -846,7 +793,7 @@ document.addEventListener('keydown',e=>{if(e.key==='F8'){e.preventDefault();open
 function setTab(el,view){
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  if(view==='terminal'){renderMain();}
+  if(view==='terminal'){renderLiveStock(activeSym);}
   else if(view==='macro'){renderMacroView();}
   else if(view==='calendar'){renderCalendarView();}
   else if(view==='bonds'){renderBondsView();}
@@ -866,18 +813,25 @@ function renderWLBody(){
   const wl=watchlists[activeWL];
   document.getElementById('wlCount').textContent=wl.stocks.length+' STOCKS';
   document.getElementById('wlBody').innerHTML=wl.stocks.map(sym=>{
-    const s=DB[sym]; if(!s)return '';
+    const s=DB[sym];
     const inPort=portfolio[sym];
+    const price=s?s.price:0;
+    const up=s?s.up:true;
+    const pct=s?s.pct:0;
+    const name=s?s.name:sym;
+    const illiq=s?s.illiq:false;
     return `<div class="wi ${sym===activeSym?'active':''}" onclick="selectStock('${sym}')">
-      <div><div class="wi-sym ${s.up?'up':'dn'}">${sym}</div><div class="wi-name">${s.name}</div></div>
+      <div><div class="wi-sym ${up?'up':'dn'}">${sym}</div><div class="wi-name">${name}</div></div>
       <div style="text-align:right;">
-        <div class="wi-price ${s.up?'up':'dn'}">₹${s.price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        <div class="wi-chg ${s.up?'up':'dn'}">${s.up?'▲':'▼'} ${Math.abs(s.pct).toFixed(2)}%</div>
-        ${s.illiq?'<span class="wi-flag flag-illiq">ILLIQ</span>':''}${inPort?'<span class="wi-flag flag-port">PORT</span>':''}
+        ${price?`<div class="wi-price ${up?'up':'dn'}">₹${price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+        <div class="wi-chg ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(pct).toFixed(2)}%</div>`
+        :`<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;">tap to load</div>`}
+        ${illiq?'<span class="wi-flag flag-illiq">ILLIQ</span>':''}${inPort?'<span class="wi-flag flag-port">PORT</span>':''}
       </div>
     </div>`;
   }).join('');
 }
+
 function switchWL(i){activeWL=i;renderWLTabs();renderWLBody();}
 function addWL(){wlMode='add';document.getElementById('wlNameTitle').textContent='NEW WATCHLIST';document.getElementById('wlNI').value='';openModal('wlNameOverlay');setTimeout(()=>document.getElementById('wlNI').focus(),100);}
 function renameWL(){wlMode='rename';document.getElementById('wlNameTitle').textContent='RENAME WATCHLIST';document.getElementById('wlNI').value=watchlists[activeWL].name;openModal('wlNameOverlay');setTimeout(()=>document.getElementById('wlNI').focus(),100);}
@@ -894,12 +848,7 @@ function selectStock(sym){
   // Switch to terminal tab
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   document.querySelector('.nav-tab').classList.add('active');
-  if(DB[sym]){
-    renderMain();
-    fetchLivePrice(sym);
-  } else {
-    renderLiveStock(sym);
-  }
+  renderLiveStock(sym);
 }
 
 // Yahoo Finance suffix map — SME stocks not available
@@ -958,7 +907,7 @@ async function fetchLivePrice(sym){
 }
 
 function applyPrice(sym, data){
-  if(!DB[sym]) return;
+  if(!DB[sym]) DB[sym] = {name:sym, price:0, chg:0, pct:0, up:true, illiq:false};
   DB[sym].price = data.price;
   DB[sym].chg = data.chg;
   DB[sym].pct = data.pct;
@@ -1051,24 +1000,28 @@ function setCTab(el,tab){
 }
 
 function renderCView(){
-  const s=DB[activeSym]; if(!s)return;
   const cv=document.getElementById('cview'); if(!cv)return;
-  if(activeCtab==='overview')cv.innerHTML=renderOverview(s);
-  else if(activeCtab==='sector')cv.innerHTML=renderSector(s);
-  else if(activeCtab==='peers')cv.innerHTML=renderPeers(s);
-  else if(activeCtab==='shareholding')cv.innerHTML=renderShareholding(s);
-  else if(activeCtab==='actions')cv.innerHTML=renderActions(s);
-  if(activeCtab==='overview')drawChart(document.querySelector('.tf.active')?.textContent||'1D');
+  const cs=`<div style="padding:30px 20px;text-align:center;">
+  <div style="font-family:var(--mono);font-size:28px;color:var(--border2);margin-bottom:12px;">⬡</div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">COMING SOON</div>
+  <div style="font-size:11px;color:var(--text3);line-height:1.7;">Live data integration in progress.<br>This will pull directly from BSE/NSE filings.</div>
+</div>`;
+  if(activeCtab==='overview') cv.innerHTML=renderOverview();
+  else if(activeCtab==='sector') cv.innerHTML=cs;
+  else if(activeCtab==='peers') cv.innerHTML=cs;
+  else if(activeCtab==='shareholding') cv.innerHTML=cs;
+  else if(activeCtab==='actions') cv.innerHTML=cs;
+  if(activeCtab==='overview') drawChart(document.querySelector('.tf.active')?.textContent||'1D');
 }
 
-function renderOverview(s){
-  const warnHTML=s.warns.map(w=>`<div class="warn-item warn-${w.t}"><span class="warn-icon">${w.i}</span><span>${w.tx}</span></div>`).join('');
-  const mgHTML=s.metrics.map((m,i)=>`<div class="mc ${m.s}" onclick="showExp('${m.n}','${m.v}','${m.ind}','${m.s}')"><div class="mc-n">${m.n}</div><div class="mc-v">${m.v}</div><div class="mc-h">? tap</div></div>`).join('');
+function renderOverview(){
+  const s=DB[activeSym]||{};
+  const mgHTML=(s.metrics||[]).map((m,i)=>`<div class="mc ${m.s}" onclick="showExp('${m.n}','${m.v}','${m.ind}','${m.s}')"><div class="mc-n">${m.n}</div><div class="mc-v">${m.v}</div><div class="mc-h">? tap</div></div>`).join('');
   const priceTable=renderPriceTable(s);
-  return `${warnHTML}
+  return `
   <div class="sec">
     <div class="sec-title">KEY METRICS <span style="color:var(--text3);font-weight:400;letter-spacing:0;font-size:9px;">— click any number to understand it</span></div>
-    <div class="mg">${mgHTML}</div>
+    <div class="mg">${mgHTML||'<div style="padding:16px;color:var(--text3);font-size:11px;">Loading metrics...</div>'}</div>
     ${priceTable}
   </div>
   <div class="chart-tfs">
@@ -1083,7 +1036,7 @@ function renderOverview(s){
   <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
   <div class="sec">
     <div class="sec-title"><span><span class="ai-dot"></span>AI RESEARCH — ${activeSym}</span><span class="sec-title-act" onclick="refreshAI()">↻ REFRESH</span></div>
-    <div class="ai-box" id="aiSummary">${s.aiS}</div>
+    <div class="ai-box" id="aiSummary">${s.aiS||''}</div>
   </div>`;
 }
 
@@ -1219,14 +1172,14 @@ function setRTab(el,tab){
 
 function renderRView(){
   const rv=document.getElementById('rview'); if(!rv)return;
-  if(activeRtab==='filings'){
-    const s=DB[activeSym];
-    rv.innerHTML=(s?s.filings:[]).map(f=>`<div class="fi"><div class="fi-top"><span class="fi-time">${f.t}</span><span class="fi-tag">${f.tag}</span></div><div class="fi-text">${f.tx}</div><div class="fi-ai">⬡ ${f.ai}</div></div>`).join('');
-  } else if(activeRtab==='alerts'){
-    renderAlerts();
-  } else if(activeRtab==='instant'){
-    renderII();
-  }
+  const cs=`<div style="padding:30px 20px;text-align:center;">
+  <div style="font-family:var(--mono);font-size:28px;color:var(--border2);margin-bottom:12px;">⬡</div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">COMING SOON</div>
+  <div style="font-size:11px;color:var(--text3);line-height:1.7;">Live data integration in progress.<br>This will pull directly from BSE/NSE filings.</div>
+</div>`;
+  if(activeRtab==='filings') rv.innerHTML=cs;
+  else if(activeRtab==='alerts') renderAlerts();
+  else if(activeRtab==='instant') renderII();
 }
 
 function showAlerts(){
