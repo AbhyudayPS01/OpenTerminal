@@ -903,9 +903,21 @@ function selectStock(sym){
 // Yahoo Finance suffix map — SME stocks not available
 const YF_SUFFIX = {
   RELIANCE:'RELIANCE.NS', TCS:'TCS.NS', HDFCBANK:'HDFCBANK.NS',
-  ZOMATO:'ETERNAL.NS', INFY:'INFY.NS', WIPRO:'WIPRO.NS',
+  ZOMATO:'ZOMATO.NS', INFY:'INFY.NS', WIPRO:'WIPRO.NS',
   ICICIBANK:'ICICIBANK.NS', KOTAKBANK:'KOTAKBANK.NS',
   BAJFINANCE:'BAJFINANCE.NS', AXISBANK:'AXISBANK.NS',
+  SBIN:'SBIN.NS', BHARTIARTL:'BHARTIARTL.NS', ITC:'ITC.NS',
+  HINDUNILVR:'HINDUNILVR.NS', ASIANPAINT:'ASIANPAINT.NS', MARUTI:'MARUTI.NS',
+  TATAMOTORS:'TATAMOTORS.NS', TATASTEEL:'TATASTEEL.NS', NTPC:'NTPC.NS',
+  POWERGRID:'POWERGRID.NS', SUNPHARMA:'SUNPHARMA.NS', DRREDDY:'DRREDDY.NS',
+  CIPLA:'CIPLA.NS', ONGC:'ONGC.NS', COALINDIA:'COALINDIA.NS',
+  ADANIENT:'ADANIENT.NS', ADANIPORTS:'ADANIPORTS.NS', LT:'LT.NS',
+  ULTRACEMCO:'ULTRACEMCO.NS', NESTLEIND:'NESTLEIND.NS', TITAN:'TITAN.NS',
+  BAJAJFINSV:'BAJAJFINSV.NS', HCLTECH:'HCLTECH.NS', TECHM:'TECHM.NS',
+  JSWSTEEL:'JSWSTEEL.NS', INDUSINDBK:'INDUSINDBK.NS', BRITANNIA:'BRITANNIA.NS',
+  GRASIM:'GRASIM.NS', APOLLOHOSP:'APOLLOHOSP.NS', BPCL:'BPCL.NS',
+  HEROMOTOCO:'HEROMOTOCO.NS', EICHERMOT:'EICHERMOT.NS', TATACONSUM:'TATACONSUM.NS',
+  HDFCLIFE:'HDFCLIFE.NS', SBILIFE:'SBILIFE.NS', DIVISLAB:'DIVISLAB.NS',
 };
 
 // Price cache — don't re-fetch within 5 minutes
@@ -926,17 +938,14 @@ async function fetchLivePrice(sym){
   if(priceEl) priceEl.style.opacity='0.5';
 
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
-    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxy);
-    const wrapper = await res.json();
-    const json = JSON.parse(wrapper.contents);
-    const q = json.chart.result[0].meta;
-    const price = q.regularMarketPrice;
-    const prev = q.chartPreviousClose || q.previousClose;
+    const res = await fetch(`/api/quote?sym=${ticker}`);
+    const q = await res.json();
+    if(q.error) throw new Error(q.error);
+    const price = q.price;
+    const prev = q.prev;
     const chg = price - prev;
     const pct = (chg/prev)*100;
-    const data = {price, chg, pct, up: chg>=0};
+    const data = {price, chg, pct, up: chg>=0, w52h: q.w52h, w52l: q.w52l};
     priceCache[sym] = {ts: Date.now(), data};
     applyPrice(sym, data);
   } catch(e){
