@@ -34,7 +34,15 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 canvas,input,button,select{transition:none;}
 
 /* TOPBAR */
-.topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 12px;height:42px;flex-shrink:0;z-index:20;position:relative;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;z-index:20;position:relative;}
+.topbar-row1{display:flex;align-items:center;padding:0 12px;height:42px;}
+.topbar-controls{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.ticker-strip{display:flex;align-items:center;height:24px;padding:0 14px;background:var(--bg);border-top:1px solid var(--border2);gap:0;overflow:hidden;}
+.ticker-item{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.ticker-name{font-family:var(--mono);font-size:8.5px;color:var(--text3);letter-spacing:1px;white-space:nowrap;}
+.ticker-val{font-family:var(--mono);font-size:11px;color:var(--text);font-weight:700;white-space:nowrap;}
+.ticker-chg{font-family:var(--mono);font-size:9.5px;white-space:nowrap;}
+.ticker-sep{color:var(--border2);font-size:12px;padding:0 10px;flex-shrink:0;user-select:none;}
 .logo{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:3px;margin-right:16px;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:7px;}
 .logo-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
@@ -44,11 +52,8 @@ canvas,input,button,select{transition:none;}
 .nav-tab:hover{color:var(--text);background:var(--bg3);}
 .nav-tab.active{color:var(--accent);background:var(--adim);}
 .nav-tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);}
-.topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;}
-.idx-pill{display:flex;align-items:center;gap:5px;padding:3px 8px;border:1px solid var(--border2);background:var(--bg3);}
-.idx-name{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;}
-.idx-val{font-family:var(--mono);font-size:11px;color:var(--text);font-weight:700;}
-.idx-chg{font-family:var(--mono);font-size:10px;}
+.topbar-right{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0;} /* legacy */
+/* idx-pill removed — replaced by ticker-strip */
 .up{color:var(--green);}.dn{color:var(--red);}
 .clock{font-family:var(--mono);font-size:11px;color:var(--accent);}
 .theme-btn{display:flex;align-items:center;gap:4px;padding:4px 9px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-family:var(--mono);font-size:9px;font-weight:700;cursor:pointer;user-select:none;}
@@ -447,27 +452,64 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <div class="logo"><div class="logo-dot"></div>OPEN<span style="color:var(--text2);font-weight:400">TERMINAL</span></div>
-  <div class="nav-tabs">
-    <div class="nav-tab active" onclick="setTab(this,'terminal')">TERMINAL</div>
-    <div class="nav-tab" onclick="setTab(this,'macro')">MACRO</div>
-    <div class="nav-tab" onclick="setTab(this,'calendar')">CALENDAR</div>
-    <div class="nav-tab" onclick="setTab(this,'bonds')">BONDS</div>
-    <div class="nav-tab" onclick="setTab(this,'mf')">MF / ETF</div>
-    <div class="nav-tab" onclick="setTab(this,'portfolio')">PORTFOLIO</div>
-    <div class="nav-tab" onclick="openModal('aiOverlay')" style="color:var(--accent);border-left:1px solid var(--border)">⬡ ASK AI</div>
+  <div class="topbar-row1">
+    <div class="logo"><div class="logo-dot"></div>OPEN<span style="color:var(--text2);font-weight:400">TERMINAL</span></div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" onclick="setTab(this,'terminal')">TERMINAL</div>
+      <div class="nav-tab" onclick="setTab(this,'macro')">MACRO</div>
+      <div class="nav-tab" onclick="setTab(this,'calendar')">CALENDAR</div>
+      <div class="nav-tab" onclick="setTab(this,'bonds')">BONDS</div>
+      <div class="nav-tab" onclick="setTab(this,'mf')">MF / ETF</div>
+      <div class="nav-tab" onclick="setTab(this,'portfolio')">PORTFOLIO</div>
+      <div class="nav-tab" onclick="openModal('aiOverlay')" style="color:var(--accent);border-left:1px solid var(--border)">⬡ ASK AI</div>
+    </div>
+    <div class="topbar-controls">
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="theme-btn" onclick="toggleTheme()"><span id="themeIcon">☀</span><span id="themeLabel">LIGHT</span></div>
+    </div>
   </div>
-  <div class="topbar-right">
-    <div class="idx-pill"><span class="idx-name">NIFTY</span><span class="idx-val" id="niftyVal">—</span><span class="idx-chg" id="niftyChg"></span></div>
-    <div class="idx-pill"><span class="idx-name">GIFT NIFTY</span><span class="idx-val" id="giftniftyVal">—</span><span class="idx-chg" id="giftniftyChg"></span></div>
-    <div class="idx-pill"><span class="idx-name">SENSEX</span><span class="idx-val" id="sensexVal">—</span><span class="idx-chg" id="sensexChg"></span></div>
-    <div class="idx-pill"><span class="idx-name">₹/$</span><span class="idx-val" id="usdinrVal">—</span><span class="idx-chg" id="usdinrChg"></span></div>
-    <div class="idx-pill"><span class="idx-name">GOLD</span><span class="idx-val" id="goldVal">—</span><span class="idx-chg" id="goldChg"></span></div>
-    <div class="idx-pill"><span class="idx-name">SILVER</span><span class="idx-val" id="silverVal">—</span><span class="idx-chg" id="silverChg"></span></div>
-    <div class="idx-pill"><span class="idx-name">BRENT</span><span class="idx-val" id="brentVal">—</span><span class="idx-chg" id="brentChg"></span></div>
-    <div class="clock" id="clock">--:--:--</div>
-    <div class="alert-badge" onclick="showAlerts()">🔔 ALERTS<span class="alert-count" id="alertCount">3</span></div>
-    <div class="theme-btn" onclick="toggleTheme()"><span id="themeIcon">☀</span><span id="themeLabel">LIGHT</span></div>
+  <div class="ticker-strip">
+    <div class="ticker-item">
+      <span class="ticker-name">NIFTY 50</span>
+      <span class="ticker-val" id="niftyVal">—</span>
+      <span class="ticker-chg" id="niftyChg"></span>
+    </div>
+    <div class="ticker-sep">·</div>
+    <div class="ticker-item">
+      <span class="ticker-name">GIFT NIFTY</span>
+      <span class="ticker-val" id="giftniftyVal">—</span>
+      <span class="ticker-chg" id="giftniftyChg"></span>
+    </div>
+    <div class="ticker-sep">·</div>
+    <div class="ticker-item">
+      <span class="ticker-name">SENSEX</span>
+      <span class="ticker-val" id="sensexVal">—</span>
+      <span class="ticker-chg" id="sensexChg"></span>
+    </div>
+    <div class="ticker-sep">·</div>
+    <div class="ticker-item">
+      <span class="ticker-name">₹/$</span>
+      <span class="ticker-val" id="usdinrVal">—</span>
+      <span class="ticker-chg" id="usdinrChg"></span>
+    </div>
+    <div class="ticker-sep">·</div>
+    <div class="ticker-item">
+      <span class="ticker-name">GOLD</span>
+      <span class="ticker-val" id="goldVal">—</span>
+      <span class="ticker-chg" id="goldChg"></span>
+    </div>
+    <div class="ticker-sep">·</div>
+    <div class="ticker-item">
+      <span class="ticker-name">SILVER</span>
+      <span class="ticker-val" id="silverVal">—</span>
+      <span class="ticker-chg" id="silverChg"></span>
+    </div>
+    <div class="ticker-sep">·</div>
+    <div class="ticker-item">
+      <span class="ticker-name">BRENT</span>
+      <span class="ticker-val" id="brentVal">—</span>
+      <span class="ticker-chg" id="brentChg"></span>
+    </div>
   </div>
 </div>
 
@@ -779,7 +821,7 @@ if(localStorage.getItem('ot-theme')==='light'){
 // ═══════════════════════════════════════════════
 // CLOCK
 // ═══════════════════════════════════════════════
-setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' IST';},1000);
+setInterval(()=>{const cl=document.getElementById('clock');if(cl)cl.textContent=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' IST';},1000);
 
 // ═══ LIVE HEADER BAR ═══
 async function updateHeaderBar(){
@@ -790,7 +832,7 @@ async function updateHeaderBar(){
     const setChg = (id, pct, up) => {
       const el=document.getElementById(id); if(!el) return;
       el.textContent = (up?'+':'')+pct.toFixed(2)+'%';
-      el.className = 'idx-chg ' + (up?'up':'dn');
+      el.className = 'ticker-chg ' + (up?'up':'dn');
     };
     const n = mkt['^NSEI'];
     if(n){ setEl('niftyVal', n.price.toLocaleString('en-IN',{maximumFractionDigits:0})); setChg('niftyChg', n.pct, n.up); }
@@ -1317,8 +1359,8 @@ function showAlerts(){
 function renderAlerts(){
   const rv=document.getElementById('rview');
   const unread=alerts.filter(a=>a.unread).length;
-  document.getElementById('alertCount').textContent=unread;
-  document.getElementById('alertCount').style.display=unread>0?'flex':'none';
+  const acEl=document.getElementById('alertCount');
+  if(acEl){ acEl.textContent=unread; acEl.style.display=unread>0?'flex':'none'; }
   if(alerts.length===0){
     rv.innerHTML=`<div style="padding:32px 16px;text-align:center;font-family:var(--mono);">
       <div style="font-size:28px;margin-bottom:12px;">🔔</div>
@@ -2167,7 +2209,7 @@ async function loadSectorAI(){
 
 async function loadPeerAI(){
   const s=DB[activeSym]; if(!s)return;
-  document.getElementById('centerPanel').querySelector('.sec div:last-child').textContent='Loading AI peer analysis...';
+  (document.getElementById('centerPanel')?.querySelector('.sec div:last-child') || {}).textContent='Loading AI peer analysis...';
   askAIQuery(`Compare ${activeSym} (${s.sector}) with its top peers in the same sector. Is it cheaper or more expensive than its peers? Which peer looks the best value right now? Explain using simple metrics like P/E, P/B, ROE.`);
 }
 
