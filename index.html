@@ -266,6 +266,7 @@ canvas#mainChart{width:100%;height:100%;}
 
 /* MACRO DASHBOARD */
 .macro-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:10px;}
+.macro-section-title{font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;padding:12px 14px 6px;border-top:1px solid var(--border);margin-top:4px;}
 .macro-card{background:var(--bg3);border:1px solid var(--border);padding:9px 10px;cursor:pointer;}
 .macro-card:hover{border-color:var(--accent);}
 .mc2-label{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:3px;}
@@ -457,10 +458,10 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
     <div class="nav-tab" onclick="openModal('aiOverlay')" style="color:var(--accent);border-left:1px solid var(--border)">⬡ ASK AI</div>
   </div>
   <div class="topbar-right">
-    <div class="idx-pill"><span class="idx-name">NIFTY</span><span class="idx-val" id="niftyVal">24,188</span><span class="idx-chg up" id="niftyChg">+0.42%</span></div>
-    <div class="idx-pill"><span class="idx-name">SENSEX</span><span class="idx-val">79,802</span><span class="idx-chg up">+0.38%</span></div>
-    <div class="idx-pill"><span class="idx-name">₹/$</span><span class="idx-val">83.47</span><span class="idx-chg dn">-0.12%</span></div>
-    <div class="idx-pill"><span class="idx-name">GOLD</span><span class="idx-val">₹71,240</span><span class="idx-chg up">+0.6%</span></div>
+    <div class="idx-pill"><span class="idx-name">NIFTY</span><span class="idx-val" id="niftyVal">—</span><span class="idx-chg" id="niftyChg"></span></div>
+    <div class="idx-pill"><span class="idx-name">SENSEX</span><span class="idx-val" id="sensexVal">—</span><span class="idx-chg" id="sensexChg"></span></div>
+    <div class="idx-pill"><span class="idx-name">₹/$</span><span class="idx-val" id="usdinrVal">—</span><span class="idx-chg" id="usdinrChg"></span></div>
+    <div class="idx-pill"><span class="idx-name">GOLD</span><span class="idx-val" id="goldVal">—</span><span class="idx-chg" id="goldChg"></span></div>
     <div class="clock" id="clock">--:--:--</div>
     <div class="alert-badge" onclick="showAlerts()">🔔 ALERTS<span class="alert-count" id="alertCount">3</span></div>
     <div class="theme-btn" onclick="toggleTheme()"><span id="themeIcon">☀</span><span id="themeLabel">LIGHT</span></div>
@@ -752,11 +753,7 @@ let activeWL=0,activeSym='RELIANCE',activeCtab='overview',activeRtab='filings',w
 // Portfolio state
 let portfolio={};
 // Alerts
-let alerts=[
-  {id:1,sym:'SMCAP499',icon:'🚨',title:'SMCAP499 — Promoter Pledge Increased',desc:'Pledge crossed 30% threshold. Total pledge now 31.2% of promoter holding.',time:'09:41 IST',unread:true},
-  {id:2,sym:'RELIANCE',icon:'📋',title:'RELIANCE — Q3 Results Filed',desc:'Q3 FY25 PAT ₹18,540 Cr up 11.2% YoY. Con call transcript available.',time:'09:38 IST',unread:true},
-  {id:3,sym:'HDFCBANK',icon:'📊',title:'HDFCBANK — FD Rate Revised',desc:'HDFC Bank revised FD rates upward by 25bps across 1Y–3Y tenors.',time:'09:15 IST',unread:true},
-];
+let alerts = []; // Smart Alerts — coming soon (requires BSE/SEBI paid API)
 
 // ═══════════════════════════════════════════════
 // THEME
@@ -780,6 +777,30 @@ if(localStorage.getItem('ot-theme')==='light'){
 // CLOCK
 // ═══════════════════════════════════════════════
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' IST';},1000);
+
+// ═══ LIVE HEADER BAR ═══
+async function updateHeaderBar(){
+  try {
+    const res = await fetch('/api/macro');
+    const {mkt} = await res.json();
+    const setEl = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    const setChg = (id, pct, up) => {
+      const el=document.getElementById(id); if(!el) return;
+      el.textContent = (up?'+':'')+pct.toFixed(2)+'%';
+      el.className = 'idx-chg ' + (up?'up':'dn');
+    };
+    const n = mkt['^NSEI'];
+    if(n){ setEl('niftyVal', n.price.toLocaleString('en-IN',{maximumFractionDigits:0})); setChg('niftyChg', n.pct, n.up); }
+    const s = mkt['^BSESN'];
+    if(s){ setEl('sensexVal', s.price.toLocaleString('en-IN',{maximumFractionDigits:0})); setChg('sensexChg', s.pct, s.up); }
+    const u = mkt['USDINR=X'];
+    if(u){ setEl('usdinrVal', u.price.toFixed(2)); setChg('usdinrChg', u.pct, u.up); }
+    const g = mkt['GC=F'];
+    if(g){ setEl('goldVal', '$'+g.price.toLocaleString('en-US',{maximumFractionDigits:0})); setChg('goldChg', g.pct, g.up); }
+  } catch(e){}
+}
+updateHeaderBar();
+setInterval(updateHeaderBar, 5*60*1000); // refresh every 5 min
 
 // ═══════════════════════════════════════════════
 // MODALS
@@ -1045,7 +1066,7 @@ function renderOverview(){
   return `
   <div class="sec">
     <div class="sec-title">KEY METRICS <span style="color:var(--text3);font-weight:400;letter-spacing:0;font-size:9px;">— click any number to understand it</span></div>
-    <div class="mg">${mgHTML||'<div style="padding:16px;color:var(--text3);font-size:11px;">Loading metrics...</div>'}</div>
+    <div class="mg">${mgHTML||'<div style="padding:16px;color:var(--text3);font-size:11px;font-family:var(--mono);">⬡ Fundamental data unavailable for this stock.<br>Yahoo Finance may not cover this ticker.</div>'}</div>
     ${priceTable}
   </div>
   ${aboutHTML}
@@ -1168,21 +1189,78 @@ function renderShareholding(s){
 }
 
 function renderActions(s){
-  const typeClass={div:'ca-div',bonus:'ca-bonus',split:'ca-split',agm:'ca-agm',rights:'ca-rights'};
-  const items=s.actions.map(a=>`<div class="ca-item">
-    <span class="ca-date">${a.date}</span>
-    <span class="ca-type ${typeClass[a.type]||'ca-div'}">${a.label}</span>
-    <div><div class="ca-text">${a.text}</div><div class="ca-sub">${a.sub}</div></div>
+  const typeClass={div:'ca-div',bonus:'ca-bonus',split:'ca-split',agm:'ca-agm',rights:'ca-rights',earnings:'ca-agm'};
+
+  if (!s.actions || s.actions.length === 0) {
+    loadNSEActions(activeSym);
+    return `<div class="sec">
+      <div class="sec-title">CORPORATE ACTIONS — ${activeSym}</div>
+      <div id="caLoadArea" style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:1px;">
+        <span class="ai-dot"></span> FETCHING FROM NSE...
+      </div>
+    </div>`;
+  }
+
+  const upcomingTag = u => u ? `<span style="font-family:var(--mono);font-size:8px;color:var(--green);margin-left:6px;padding:1px 4px;border:1px solid var(--green);background:var(--gdim);">UPCOMING</span>` : '';
+
+  const items = s.actions.map(a => `<div class="ca-item">
+    <span class="ca-date">${a.date||'—'}</span>
+    <span class="ca-type ${typeClass[a.type]||'ca-div'}">${a.label||a.type}</span>
+    <div>
+      <div class="ca-text">${a.text}${upcomingTag(a.upcoming)}</div>
+      <div class="ca-sub">${a.sub||''}</div>
+    </div>
   </div>`).join('');
+
+  const nseItems = s.nseActions ? s.nseActions.map(a => `<div class="ca-item">
+    <span class="ca-date">${a.date||'—'}</span>
+    <span class="ca-type ${typeClass[a.type]||'ca-div'}">${a.label}</span>
+    <div>
+      <div class="ca-text">${a.text}</div>
+      <div class="ca-sub">${a.sub||''}</div>
+    </div>
+  </div>`).join('') : '';
+
+  const hasBoth = s.nseActions && s.nseActions.length > 0;
+
   return `<div class="sec">
     <div class="sec-title">CORPORATE ACTIONS — ${activeSym}</div>
-    <div style="font-size:10px;color:var(--text3);margin-bottom:10px;">Past and upcoming dividends, bonuses, splits, AGMs and rights issues</div>
+    <div style="font-size:10px;color:var(--text3);margin-bottom:10px;">Upcoming earnings, dividends, splits and historical actions</div>
     ${items}
+    ${hasBoth ? `
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px;padding:10px 0 6px;border-top:1px solid var(--border);margin-top:4px;">HISTORICAL — FROM NSE</div>
+      ${nseItems}
+    ` : ''}
     <div style="margin-top:12px;padding:10px;background:var(--ydim);border:1px solid var(--yellow);border-left:3px solid var(--yellow);">
       <div style="font-family:var(--mono);font-size:9px;color:var(--yellow);margin-bottom:5px;">WHY THIS MATTERS</div>
-      <div style="font-size:11px;color:var(--text2);line-height:1.7;">To receive a dividend, you must own the stock before the ex-dividend date. If you buy on or after the ex-date, you will NOT receive that dividend. The stock price typically falls by the dividend amount on the ex-date.</div>
+      <div style="font-size:11px;color:var(--text2);line-height:1.7;">To receive a dividend, you must own the stock <strong>before</strong> the ex-dividend date. If you buy on or after the ex-date, you will NOT receive that dividend. The stock price typically falls by the dividend amount on the ex-date.</div>
+    </div>
+    <div style="font-size:9px;color:var(--text3);margin-top:8px;font-family:var(--mono);">
+      ● Yahoo Finance · NSE India &nbsp;|&nbsp; Last updated: ${new Date().toLocaleTimeString('en-IN')}
     </div>
   </div>`;
+}
+
+async function loadNSEActions(sym) {
+  const el = document.getElementById('caLoadArea');
+  try {
+    const to   = new Date();
+    const from = new Date(); from.setFullYear(from.getFullYear() - 2);
+    const pad  = n => String(n).padStart(2,'0');
+    const fmt  = d => `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`;
+    const res  = await fetch(`/api/nseactions?sym=${sym}&from=${fmt(from)}&to=${fmt(to)}`);
+    if (!res.ok) throw new Error('NSE fetch failed');
+    const json = await res.json();
+    if (json.actions && json.actions.length > 0) {
+      if (!DB[sym]) DB[sym] = {};
+      DB[sym].nseActions = json.actions;
+      if (activeCtab === 'actions') renderCView();
+    } else {
+      if (el) el.innerHTML = '<span style="color:var(--text3)">No historical actions found on NSE</span>';
+    }
+  } catch(e) {
+    if (el) el.innerHTML = `<span style="color:var(--text3)">NSE data unavailable</span>`;
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -1222,6 +1300,15 @@ function renderAlerts(){
   const unread=alerts.filter(a=>a.unread).length;
   document.getElementById('alertCount').textContent=unread;
   document.getElementById('alertCount').style.display=unread>0?'flex':'none';
+  if(alerts.length===0){
+    rv.innerHTML=`<div style="padding:32px 16px;text-align:center;font-family:var(--mono);">
+      <div style="font-size:28px;margin-bottom:12px;">🔔</div>
+      <div style="font-size:11px;color:var(--accent);letter-spacing:2px;font-weight:700;margin-bottom:8px;">SMART ALERTS</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.7;margin-bottom:16px;">Price targets · Pledge alerts<br>Results calendar · F&O expiry</div>
+      <div style="font-size:9px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);padding:8px 12px;border-radius:4px;">COMING SOON — Watch your stocks here.<br>Requires BSE/SEBI corporate action feed.</div>
+    </div>`;
+    return;
+  }
   rv.innerHTML=alerts.map(a=>`<div class="alert-item ${a.unread?'unread':''}" onclick="markRead(${a.id})">
     <span class="al-icon">${a.icon}</span>
     <div class="al-body">
@@ -1240,7 +1327,7 @@ function markRead(id){
 // ═══════════════════════════════════════════════
 // CHART
 // ═══════════════════════════════════════════════
-function drawChart(tf){
+async function drawChart(tf){
   const canvas=document.getElementById('mainChart'); if(!canvas)return;
   const p=canvas.parentElement;
   canvas.width=p.clientWidth;canvas.height=p.clientHeight;
@@ -1249,37 +1336,58 @@ function drawChart(tf){
   const W=canvas.width,H=canvas.height;
   const s=DB[activeSym];
   const isUp=s?s.up:true;
-  const pts={'1D':78,'1W':200,'1M':22,'3M':65,'6M':130,'1Y':252,'3Y':756}[tf]||78;
-  const base=s?s.price*.985:2800;
-  let data=[base];
-  for(let i=1;i<pts;i++)data.push(Math.max(data[i-1]+(Math.random()-(isUp?.46:.54))*8,base*.75));
-  const min=Math.min(...data)*.998,max=Math.max(...data)*1.002;
-  const pad={t:12,r:50,b:22,l:54};
+  const pad={t:12,r:54,b:22,l:58};
   const cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
-  const toX=i=>pad.l+(i/(data.length-1))*cW;
-  const toY=v=>pad.t+(1-(v-min)/(max-min))*cH;
-  const lc=isUp?'#00e676':'#ff5252';
-  const f0=isUp?'rgba(0,230,118,.18)':'rgba(255,82,82,.18)';
-  for(let i=0;i<=4;i++){
-    const y=pad.t+(i/4)*cH;
-    ctx.strokeStyle='rgba(100,140,170,.12)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cW,y);ctx.stroke();
-    const v=max-(i/4)*(max-min);
-    ctx.fillStyle='#3d5466';ctx.font='9px Space Mono';ctx.textAlign='right';
-    ctx.fillText('₹'+v.toFixed(0),pad.l-4,y+3);
+
+  // Show loading
+  ctx.fillStyle='var(--text3)';ctx.font='10px Space Mono';ctx.textAlign='center';
+  ctx.fillText('Loading chart...', W/2, H/2);
+
+  try {
+    const ticker = (activeSym+'.NS');
+    const res = await fetch(`/api/quote?sym=${ticker}&chart=${tf}`);
+    const json = await res.json();
+    const data = (json.points||[]).map(p=>p.c);
+    if(!data.length) throw new Error('no data');
+
+    ctx.clearRect(0,0,W,H);
+    const min=Math.min(...data)*.998, max=Math.max(...data)*1.002;
+    const toX=i=>pad.l+(i/(data.length-1))*cW;
+    const toY=v=>pad.t+(1-(v-min)/(max-min))*cH;
+    const lc=isUp?'#00e676':'#ff5252';
+    const f0=isUp?'rgba(0,230,118,.18)':'rgba(255,82,82,.18)';
+
+    for(let i=0;i<=4;i++){
+      const y=pad.t+(i/4)*cH;
+      ctx.strokeStyle='rgba(100,140,170,.12)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cW,y);ctx.stroke();
+      const v=max-(i/4)*(max-min);
+      ctx.fillStyle='#3d5466';ctx.font='9px Space Mono';ctx.textAlign='right';
+      ctx.fillText('₹'+v.toFixed(0),pad.l-4,y+3);
+    }
+
+    const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+cH);
+    grad.addColorStop(0,f0);grad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0]));
+    data.forEach((v,i)=>{if(i)ctx.lineTo(toX(i),toY(v));});
+    ctx.lineTo(toX(data.length-1),pad.t+cH);ctx.lineTo(toX(0),pad.t+cH);
+    ctx.closePath();ctx.fillStyle=grad;ctx.fill();
+
+    ctx.beginPath();ctx.moveTo(toX(0),toY(data[0]));
+    data.forEach((v,i)=>{if(i)ctx.lineTo(toX(i),toY(v));});
+    ctx.strokeStyle=lc;ctx.lineWidth=1.5;ctx.shadowBlur=6;ctx.shadowColor=lc;ctx.stroke();ctx.shadowBlur=0;
+
+    const last=data[data.length-1],ly=toY(last);
+    ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(pad.l,ly);ctx.lineTo(pad.l+cW,ly);
+    ctx.strokeStyle=lc+'55';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=lc;ctx.font='bold 9px Space Mono';ctx.textAlign='left';
+    ctx.fillText('₹'+last.toFixed(1),pad.l+cW+3,ly+3);
+
+  } catch(e){
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#3d5466';ctx.font='10px Space Mono';ctx.textAlign='center';
+    ctx.fillText('Chart unavailable', W/2, H/2);
   }
-  const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+cH);
-  grad.addColorStop(0,f0);grad.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.beginPath();ctx.moveTo(toX(0),toY(data[0]));
-  data.forEach((v,i)=>{if(i)ctx.lineTo(toX(i),toY(v));});
-  ctx.lineTo(toX(data.length-1),pad.t+cH);ctx.lineTo(toX(0),pad.t+cH);
-  ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  ctx.beginPath();ctx.moveTo(toX(0),toY(data[0]));
-  data.forEach((v,i)=>{if(i)ctx.lineTo(toX(i),toY(v));});
-  ctx.strokeStyle=lc;ctx.lineWidth=1.5;ctx.shadowBlur=6;ctx.shadowColor=lc;ctx.stroke();ctx.shadowBlur=0;
-  const last=data[data.length-1],ly=toY(last);
-  ctx.setLineDash([3,4]);ctx.beginPath();ctx.moveTo(pad.l,ly);ctx.lineTo(pad.l+cW,ly);ctx.strokeStyle=lc+'55';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle=lc;ctx.font='bold 9px Space Mono';ctx.textAlign='left';ctx.fillText('₹'+last.toFixed(0),pad.l+cW+3,ly+3);
 }
 function setTF(el,tf){document.querySelectorAll('.tf').forEach(b=>b.classList.remove('active'));el.classList.add('active');drawChart(tf);}
 window.addEventListener('resize',()=>drawChart(document.querySelector('.tf.active')?.textContent||'1D'));
@@ -1289,44 +1397,178 @@ window.addEventListener('resize',()=>drawChart(document.querySelector('.tf.activ
 // ═══════════════════════════════════════════════
 function renderMacroView(){
   const cv=document.getElementById('centerPanel');
-  cv.innerHTML=`<div class="ph">MACRO DASHBOARD — INDIA + GLOBAL</div>
-  <div class="cview" style="flex:1;overflow-y:auto;">
-  <div style="padding:10px;font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;">INDIA MACRO</div>
-  <div class="macro-grid">
-    <div class="macro-card" onclick="explainMacro('repo')"><div class="mc2-label">RBI REPO RATE</div><div class="mc2-val" style="color:var(--accent)">6.50%</div><div class="mc2-sub">Unchanged for 7 consecutive meets</div><div class="mc2-chg" style="color:var(--text3)">Last changed: Feb 2023</div></div>
-    <div class="macro-card" onclick="explainMacro('cpi')"><div class="mc2-label">CPI INFLATION</div><div class="mc2-val" style="color:var(--green)">4.31%</div><div class="mc2-sub">Feb 2026 — Within RBI's 4% ±2% band</div><div class="mc2-chg up">↓ From 5.22% last month</div></div>
-    <div class="macro-card" onclick="explainMacro('gdp')"><div class="mc2-label">GDP GROWTH</div><div class="mc2-val" style="color:var(--green)">6.4%</div><div class="mc2-sub">Q3 FY25 — Fastest among G20</div><div class="mc2-chg up">↑ From 5.4% prior quarter</div></div>
-    <div class="macro-card" onclick="explainMacro('gsec')"><div class="mc2-label">10Y GSEC YIELD</div><div class="mc2-val" style="color:var(--yellow)">7.04%</div><div class="mc2-sub">Government bond benchmark rate</div><div class="mc2-chg dn">↑ Rose 12bps this week</div></div>
-    <div class="macro-card" onclick="explainMacro('usdinr')"><div class="mc2-label">USD / INR</div><div class="mc2-val" style="color:var(--text)">83.47</div><div class="mc2-sub">Rupee relatively stable</div><div class="mc2-chg dn">↓ Weakened 0.12% today</div></div>
-    <div class="macro-card" onclick="explainMacro('fii')"><div class="mc2-label">FII NET FLOW (MTD)</div><div class="mc2-val" style="color:var(--red)">-₹8,240 Cr</div><div class="mc2-sub">Foreign investors net sellers in March</div><div class="mc2-chg dn">↓ Selling pressure</div></div>
+  cv.innerHTML=`
+  <div class="ph" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>MACRO DASHBOARD — INDIA + GLOBAL</span>
+    <span style="font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0;" id="macroTs">Loading...</span>
   </div>
-  <div style="padding:10px;font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px;margin-top:4px;">GLOBAL MACRO</div>
-  <div class="macro-grid">
-    <div class="macro-card" onclick="explainMacro('fed')"><div class="mc2-label">US FED RATE</div><div class="mc2-val" style="color:var(--text)">5.25–5.50%</div><div class="mc2-sub">United States — Near 22-year high</div><div class="mc2-chg" style="color:var(--text3)">Next meet: Mar 19, 2026</div></div>
-    <div class="macro-card" onclick="explainMacro('us10y')"><div class="mc2-label">US 10Y YIELD</div><div class="mc2-val" style="color:var(--yellow)">4.48%</div><div class="mc2-sub">Global risk-free rate benchmark</div><div class="mc2-chg dn">↑ High = pressure on EM flows</div></div>
-    <div class="macro-card" onclick="explainMacro('ecb')"><div class="mc2-label">ECB RATE</div><div class="mc2-val" style="color:var(--text)">4.50%</div><div class="mc2-sub">European Central Bank</div><div class="mc2-chg" style="color:var(--text3)">Held at Mar meeting</div></div>
-    <div class="macro-card" onclick="explainMacro('boj')"><div class="mc2-label">BANK OF JAPAN</div><div class="mc2-val" style="color:var(--text)">0.10%</div><div class="mc2-sub">Japan — Near zero rate policy</div><div class="mc2-chg up">↑ First hike since 2007</div></div>
-    <div class="macro-card" onclick="explainMacro('crude')"><div class="mc2-label">BRENT CRUDE</div><div class="mc2-val" style="color:var(--orange)">$84.20</div><div class="mc2-sub">India imports 85% of crude needs</div><div class="mc2-chg dn">↑ Rising = inflation pressure for India</div></div>
-    <div class="macro-card" onclick="explainMacro('dxy')"><div class="mc2-label">US DOLLAR INDEX</div><div class="mc2-val" style="color:var(--text)">104.2</div><div class="mc2-sub">Strength of USD globally</div><div class="mc2-chg dn">Strong USD = weak EM currencies</div></div>
-  </div>
-  <div id="macroExplain" style="display:none;" class="macro-explain"></div>
+  <div style="flex:1;overflow-y:auto;padding-bottom:20px;" id="macroCont">
+    <div style="padding:40px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;"><span class="ai-dot"></span> FETCHING LIVE DATA...</div>
   </div>`;
+  loadMacroData();
 }
 
+async function loadMacroData(){
+  const cont = document.getElementById('macroCont');
+  if(!cont) return;
+  try {
+    const res = await fetch('/api/macro');
+    const json = await res.json();
+    const { mkt, fiiDii, rbi, ts } = json;
+
+    const tsEl = document.getElementById('macroTs');
+    if(tsEl) tsEl.textContent = 'Live · ' + new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) + ' IST';
+
+    const mcard = (sym, label, sub, onclick, priceOverride, noteOverride) => {
+      const q = mkt[sym] || {};
+      const price = priceOverride != null ? priceOverride : q.price;
+      const pct = q.pct;
+      const up = q.up;
+      const hasLive = q.price != null;
+      const priceStr = price != null ? fmtMacroPrice(sym, price) : '—';
+      const badge = hasLive ? `<span style="font-size:8px;color:var(--green);margin-left:4px;">●</span>` : '';
+      const changeStr = hasLive ? `${up?'▲':'▼'} ${Math.abs(pct||0).toFixed(2)}% today` : (noteOverride||'');
+      return `<div class="macro-card" onclick="${onclick}">
+        <div class="mc2-label">${label}${badge}</div>
+        <div class="mc2-val" style="color:${hasLive?(up?'var(--green)':'var(--red)'):'var(--accent)'}">${priceStr}</div>
+        <div class="mc2-sub">${sub}</div>
+        <div class="mc2-chg ${hasLive?(up?'up':'dn'):''}" style="${!hasLive?'color:var(--text3)':''}">${changeStr}</div>
+      </div>`;
+    };
+
+    const scard = (label, val, sub, note, color, onclick) => `
+      <div class="macro-card" onclick="${onclick}">
+        <div class="mc2-label">${label}</div>
+        <div class="mc2-val" style="color:${color||'var(--accent)'}">${val}</div>
+        <div class="mc2-sub">${sub}</div>
+        <div class="mc2-chg" style="color:var(--text3)">${note}</div>
+      </div>`;
+
+    // FII/DII cards
+    const fiiNet = fiiDii?.fii_net;
+    const diiNet = fiiDii?.dii_net;
+    const fiiStr = fiiNet != null ? (fiiNet>=0?'+':'')+'₹'+Math.abs(fiiNet).toFixed(0)+' Cr' : '₹24,753 Cr (Mar)';
+    const diiStr = diiNet != null ? (diiNet>=0?'+':'')+'₹'+Math.abs(diiNet).toFixed(0)+' Cr' : '+₹18,102 Cr (Mar)';
+    const fiiUp = fiiNet != null ? fiiNet >= 0 : false;
+    const diiUp = diiNet != null ? diiNet >= 0 : true;
+    const fiiDate = fiiDii?.date || 'Latest available';
+
+    cont.innerHTML = `
+      <div class="macro-section-title">🇮🇳 INDIAN INDICES — LIVE</div>
+      <div class="macro-grid">
+        ${mcard('^NSEI',    'NIFTY 50',    'NSE benchmark — Top 50 stocks', "explainMacro('nifty')")}
+        ${mcard('^BSESN',  'SENSEX',      'BSE 30-stock index',             "explainMacro('sensex')")}
+        ${mcard('^NSEBANK','BANK NIFTY',  'NSE banking sector index',       "explainMacro('banknifty')")}
+      </div>
+
+      <div class="macro-section-title">🏦 RBI MONETARY POLICY</div>
+      <div class="macro-grid">
+        ${scard('RBI REPO RATE', rbi.repo_rate, rbi.repo_change, rbi.repo_note, 'var(--accent)', "explainMacro('repo')")}
+        ${scard('CPI INFLATION', rbi.cpi, rbi.cpi_note, rbi.cpi_change, 'var(--green)', "explainMacro('cpi')")}
+        ${scard('GDP GROWTH', rbi.gdp, rbi.gdp_note, rbi.gdp_change, 'var(--green)', "explainMacro('gdp')")}
+        ${mcard('^IN10YT=RR', '10Y GSEC YIELD', 'India govt bond benchmark', "explainMacro('gsec')")}
+        ${scard('FOREX RESERVES', rbi.fx_reserves, rbi.fx_note, 'RBI buffer against shocks', 'var(--yellow)', "explainMacro('forex')")}
+        ${scard('CRR / SDF / MSF', rbi.crr+' / '+rbi.sdf+' / '+rbi.msf, 'Cash Reserve / Standing Deposit / MSF', 'RBI policy corridor', 'var(--text)', "explainMacro('crr')")}
+      </div>
+
+      <div class="macro-section-title">📊 FII / DII FLOWS — ${fiiDate}</div>
+      <div class="macro-grid">
+        <div class="macro-card" onclick="explainMacro('fii')">
+          <div class="mc2-label">FII NET FLOW <span style="font-size:8px;color:${fiiDii?'var(--green)':'var(--text3)'};">${fiiDii?'● LIVE':'● STATIC'}</span></div>
+          <div class="mc2-val" style="color:${fiiUp?'var(--green)':'var(--red)'}">${fiiStr}</div>
+          <div class="mc2-sub">Foreign Portfolio Investors</div>
+          <div class="mc2-chg ${fiiUp?'up':'dn'}">${fiiUp?'↑ Net buyers':'↓ Net sellers'} today</div>
+        </div>
+        <div class="macro-card" onclick="explainMacro('dii')">
+          <div class="mc2-label">DII NET FLOW <span style="font-size:8px;color:${fiiDii?'var(--green)':'var(--text3)'};">${fiiDii?'● LIVE':'● STATIC'}</span></div>
+          <div class="mc2-val" style="color:${diiUp?'var(--green)':'var(--red)'}">${diiStr}</div>
+          <div class="mc2-sub">Domestic Institutional Investors</div>
+          <div class="mc2-chg ${diiUp?'up':'dn'}">${diiUp?'↑ Net buyers':'↓ Net sellers'} today</div>
+        </div>
+        ${fiiDii ? `
+        <div class="macro-card">
+          <div class="mc2-label">FII BUY / SELL</div>
+          <div class="mc2-val" style="color:var(--text);font-size:11px;">₹${(fiiDii.fii_buy||0).toFixed(0)} / ₹${(fiiDii.fii_sell||0).toFixed(0)} Cr</div>
+          <div class="mc2-sub">Gross buy vs sell today</div>
+          <div class="mc2-chg" style="color:var(--text3);">DII: ₹${(fiiDii.dii_buy||0).toFixed(0)} / ₹${(fiiDii.dii_sell||0).toFixed(0)} Cr</div>
+        </div>` : ''}
+      </div>
+
+      <div class="macro-section-title">💱 CURRENCY — LIVE</div>
+      <div class="macro-grid">
+        ${mcard('USDINR=X', 'USD / INR', 'US Dollar · Rupee',     "explainMacro('usdinr')")}
+        ${mcard('EURINR=X', 'EUR / INR', 'Euro · Rupee',          "explainMacro('eurinr')")}
+        ${mcard('GBPINR=X', 'GBP / INR', 'British Pound · Rupee', "explainMacro('gbpinr')")}
+      </div>
+
+      <div class="macro-section-title">🌍 GLOBAL INDICES — LIVE</div>
+      <div class="macro-grid">
+        ${mcard('^GSPC', 'S&P 500',    'US large cap benchmark',   "explainMacro('sp500')")}
+        ${mcard('^IXIC', 'NASDAQ',     'US tech-heavy index',      "explainMacro('nasdaq')")}
+        ${mcard('^DJI',  'DOW JONES',  'US 30 blue-chip stocks',   "explainMacro('dji')")}
+        ${mcard('^FTSE', 'FTSE 100',   'UK benchmark index',       "explainMacro('ftse')")}
+        ${mcard('^N225', 'NIKKEI 225', 'Japan benchmark',          "explainMacro('nikkei')")}
+        ${mcard('^HSI',  'HANG SENG',  'Hong Kong benchmark',      "explainMacro('hsi')")}
+      </div>
+
+      <div class="macro-section-title">⛽ COMMODITIES + RATES — LIVE</div>
+      <div class="macro-grid">
+        ${mcard('BZ=F',  'BRENT CRUDE', 'India imports 85% of crude',       "explainMacro('crude')")}
+        ${mcard('GC=F',  'GOLD (USD)',  'Safe haven & inflation hedge',      "explainMacro('gold')")}
+        ${mcard('SI=F',  'SILVER (USD)','Industrial + precious metal',       "explainMacro('silver')")}
+        ${mcard('^TNX',  'US 10Y YIELD','Global risk-free benchmark',        "explainMacro('us10y')")}
+        ${scard('US FED RATE', '4.25–4.50%', 'Cutting cycle begun Sep 2024', 'Next FOMC: Mar 19, 2026', 'var(--text)', "explainMacro('fed')")}
+        ${scard('ECB RATE', '2.65%', 'European Central Bank', 'Cutting cycle — 5 cuts so far', 'var(--text)', "explainMacro('ecb')")}
+      </div>
+
+      <div id="macroExplain" style="display:none;" class="macro-explain"></div>
+    `;
+
+  } catch(e) {
+    if(cont) cont.innerHTML = `<div style="padding:20px;color:var(--red);font-size:12px;">Failed: ${e.message}</div>`;
+  }
+}
+
+function fmtMacroPrice(sym, price){
+  if(!price) return '—';
+  if(['USDINR=X','EURINR=X','GBPINR=X','INR=X'].includes(sym)) return '₹'+price.toFixed(2);
+  if(['^TNX','^IN10YT=RR'].includes(sym)) return price.toFixed(2)+'%';
+  if(['BZ=F','GC=F','SI=F'].includes(sym)) return '$'+price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(['^NSEI','^BSESN','^NSEBANK'].includes(sym)) return price.toLocaleString('en-IN',{maximumFractionDigits:0});
+  return price.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+
 const macroExplains={
-  repo:'<strong>RBI Repo Rate at 6.50%</strong> — This is the interest rate at which RBI lends money to banks. When this rate is high, borrowing becomes expensive for banks, which passes on to consumers and companies as higher loan rates. High repo rate → higher EMIs → slower economic growth → lower corporate profits → stock market pressure. When RBI cuts this rate, it stimulates economic activity and is generally positive for stock markets.',
-  cpi:'<strong>CPI Inflation at 4.31%</strong> — Consumer Price Index measures how much everyday goods have become expensive. India\'s RBI targets 4% inflation with a ±2% band. At 4.31%, inflation is within the acceptable range. High inflation erodes purchasing power, forces RBI to keep rates high, and compresses company margins. Falling inflation is positive for markets as it creates room for rate cuts.',
-  gdp:'<strong>GDP Growth at 6.4%</strong> — India is growing at 6.4% annually — the fastest among G20 economies. Strong GDP growth means more corporate revenues, higher employment, and generally positive stock market returns. India\'s young population and urbanisation are structural growth drivers. Watch for quarterly slowdowns as early warning signals.',
-  gsec:'<strong>10Y GSec Yield at 7.04%</strong> — Government Security yield is the interest rate on 10-year government bonds. This is the risk-free benchmark in India. When GSec yield rises, it becomes more attractive to hold bonds vs stocks, pulling money out of equity markets. It also raises borrowing costs for corporates. A yield spike is generally negative for equity markets.',
-  fed:'<strong>US Fed Rate at 5.25–5.50%</strong> — The US Federal Reserve\'s interest rate affects global capital flows. When US rates are high, global money moves to US bonds (safe, high-yielding), which reduces foreign investment in emerging markets like India. This causes FII selling in Indian markets and weakens the Rupee. Every Fed meeting is closely watched by Indian market participants.',
-  us10y:'<strong>US 10Y Yield at 4.48%</strong> — The US 10-year Treasury yield is the global benchmark for "risk-free" returns. When this rises, all risky assets globally face pressure because investors can now get safe returns in US bonds. Indian equity markets tend to fall when US yields spike. This is why global macro matters even for domestic Indian stock investors.',
-  crude:'<strong>Brent Crude at $84.20</strong> — India imports over 85% of its crude oil needs. Rising oil prices directly increase India\'s import bill, widen the trade deficit, weaken the Rupee, and increase fuel costs across the economy. Every $10 rise in crude adds approximately 0.4% to India\'s inflation. High crude is negative for India\'s macroeconomic stability.',
-  fii:'<strong>FII Net Flow -₹8,240 Cr</strong> — Foreign Institutional Investors are net sellers this month. FIIs hold approximately 20-25% of Indian market capitalisation. When they sell heavily, market indices fall regardless of domestic fundamentals. FII flows are influenced by US interest rates, global risk appetite, and India\'s relative attractiveness vs other markets.',
-  usdinr:'<strong>USD/INR at 83.47</strong> — A weaker Rupee increases import costs (especially oil), raises inflation, and can deter foreign investors. However, it benefits export-oriented sectors like IT and pharma that earn in USD. For an average investor, Rupee depreciation reduces the real returns on your investments if measured in purchasing power.',
-  ecb:'<strong>ECB Rate at 4.50%</strong> — European Central Bank raised rates aggressively to fight inflation. High European rates reduce global liquidity as European investors earn more at home. European companies also cut IT spending when borrowing costs rise, affecting Indian IT stocks like TCS and Infosys.',
-  boj:'<strong>Bank of Japan at 0.10%</strong> — Japan\'s first rate hike since 2007 is significant. For years, global investors borrowed cheaply in Japan (Yen carry trade) and invested in high-yield markets including India. As Japan raises rates, this carry trade unwinds and can cause sudden selling in emerging markets.',
-  dxy:'<strong>US Dollar Index at 104.2</strong> — The DXY measures USD strength against a basket of currencies. A strong USD means all other currencies, including the Rupee, weaken relatively. Strong USD also means commodities priced in USD become more expensive for India. High DXY periods are typically challenging for emerging market stocks.',
+  nifty:'<strong>Nifty 50</strong> — India\'s benchmark index of top 50 NSE stocks. When Nifty moves, your portfolio moves. Best single measure of Indian market health.',
+  sensex:'<strong>Sensex</strong> — BSE\'s 30-stock index, India\'s oldest benchmark. Tracks same macro story as Nifty but narrower.',
+  banknifty:'<strong>Bank Nifty</strong> — Top Indian banking stocks. More volatile than Nifty and often leads market direction. FII activity in financials drives this heavily.',
+  repo:'<strong>RBI Repo Rate 5.25%</strong> — Cut 25bps in Feb 2026. Rate RBI charges banks for overnight borrowing. Lower repo = cheaper loans = more spending = higher corporate profits. Rate cuts are bullish for equity. Next MPC: Apr 7–9, 2026.',
+  cpi:'<strong>CPI Inflation 4.31%</strong> — Within RBI\'s 2%–6% band and trending down. Falling inflation creates room for more rate cuts — bullish for markets. Means less cost pressure on companies too.',
+  gdp:'<strong>GDP Growth 8.2%</strong> — India is the fastest growing major economy in the world. Strong GDP = rising corporate revenues = higher stock prices over time.',
+  gsec:'<strong>India 10Y GSec Yield</strong> — Government bond benchmark. Lower yield (post rate cut) makes equities more attractive on relative basis. Watch for spikes — they signal bond market stress.',
+  forex:'<strong>Forex Reserves $654.9B</strong> — RBI\'s war chest. High reserves mean RBI can defend the Rupee and absorb shocks. India\'s reserves cover ~10 months of imports.',
+  crr:'<strong>CRR/SDF/MSF</strong> — CRR: Cash banks must park with RBI (3%). SDF: Rate RBI pays banks for parking surplus (5%). MSF: Emergency borrowing rate (5.5%). Together define the RBI\'s liquidity corridor.',
+  fii:'<strong>FII/FPI Net Flow</strong> — Foreign investors buying or selling Indian stocks today. FIIs hold ~20% of Indian market cap — when they sell, indices fall regardless of fundamentals. Driven by US rates, global risk appetite, and Rupee direction.',
+  dii:'<strong>DII Net Flow</strong> — Domestic mutual funds, insurance, pension funds. DIIs absorb FII selling — this is why SIP money is so important. Strong DII buying provides a floor to the market.',
+  usdinr:'<strong>USD/INR</strong> — Weaker Rupee raises import costs (oil!), raises inflation. Benefits IT/Pharma exporters who earn in USD. RBI intervenes to prevent sharp moves.',
+  eurinr:'<strong>EUR/INR</strong> — Europe is a major market for Indian IT and pharma. Euro weakness reduces INR-equivalent earnings from European clients.',
+  gbpinr:'<strong>GBP/INR</strong> — UK is significant for Indian IT (TCS, Wipro, Infosys large UK presence). Also affects Indian diaspora remittances.',
+  sp500:'<strong>S&P 500</strong> — 500 biggest US companies. Drives global risk sentiment. When S&P falls sharply, FIIs sell EM including India. Indian IT correlates with US tech spending.',
+  nasdaq:'<strong>Nasdaq</strong> — US tech-heavy index. When Nasdaq falls, Indian IT (TCS, Infy, HCL) typically follows. Tech sentiment in US directly impacts Indian IT valuations.',
+  dji:'<strong>Dow Jones</strong> — 30 blue-chip US stocks. Gauge of traditional US corporate health. Less volatile than Nasdaq.',
+  ftse:'<strong>FTSE 100</strong> — UK benchmark. Heavy on energy/mining — reflects global commodity cycle. Indian companies with UK exposure affected by FTSE sentiment.',
+  nikkei:'<strong>Nikkei 225</strong> — Japan\'s benchmark. Rising Nikkei / JPY strength can unwind Yen carry trades causing sudden EM outflows. Key liquidity shock indicator.',
+  hsi:'<strong>Hang Seng</strong> — Hong Kong benchmark, proxy for China sentiment. China slowdown affects global commodity demand and India\'s exports.',
+  crude:'<strong>Brent Crude</strong> — India imports 85%+ of crude. Every $10 rise = ~0.4% more inflation + wider current account deficit + weaker Rupee. High crude is India\'s biggest macro risk.',
+  gold:'<strong>Gold</strong> — Rising gold = global risk-off. India is world\'s 2nd largest gold consumer. High prices dampen demand but benefit jewellery stocks. Often moves inversely to equities.',
+  silver:'<strong>Silver</strong> — Both industrial and precious. Tracks gold direction but more volatile. India is a major silver importer — used in solar panels and electronics.',
+  us10y:'<strong>US 10Y Treasury Yield</strong> — Global benchmark for risk-free returns. Rising yield pulls capital from EM to US bonds = FII selling in India. Most important global rate to watch.',
+  fed:'<strong>US Fed Rate 4.25–4.50%</strong> — Cutting cycle began Sep 2024. Lower US rates = global money seeks higher yields in EM = India benefits. Rate cut cycles are typically positive for Indian markets.',
+  ecb:'<strong>ECB Rate 2.65%</strong> — European Central Bank cutting aggressively. Lower European rates reduce home returns for European investors, pushing some capital toward India.',
 };
+
+
 
 function explainMacro(key){
   const el=document.getElementById('macroExplain');
@@ -1405,43 +1647,81 @@ function renderCalendarView(){
 // ═══════════════════════════════════════════════
 // BONDS VIEW
 // ═══════════════════════════════════════════════
-function renderBondsView(){
-  const bonds=[
-    {label:'RBI Repo Rate',val:'6.50%',chg:'Unchanged',color:'var(--accent)'},
-    {label:'RBI Reverse Repo',val:'3.35%',chg:'Unchanged',color:'var(--text)'},
-    {label:'India 10Y GSec',val:'7.04%',chg:'↑ +12bps',color:'var(--yellow)'},
-    {label:'India 5Y GSec',val:'6.88%',chg:'↑ +8bps',color:'var(--yellow)'},
-    {label:'India 2Y GSec',val:'6.72%',chg:'↑ +5bps',color:'var(--text)'},
-    {label:'AAA Corporate Bond 10Y',val:'7.84%',chg:'Spread: +80bps over GSec',color:'var(--text)'},
-    {label:'AA Corporate Bond 10Y',val:'8.24%',chg:'Spread: +120bps over GSec',color:'var(--text)'},
-    {label:'US 10Y Treasury',val:'4.48%',chg:'↑ Rising — EM pressure',color:'var(--orange)'},
-  ];
-  document.getElementById('centerPanel').innerHTML=`<div class="ph">BOND & DEBT MARKET</div>
-  <div class="cview" style="flex:1;overflow-y:auto;">
+async function renderBondsView(){
+  document.getElementById('centerPanel').innerHTML=`
+  <div class="ph" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>BOND & DEBT MARKET</span>
+    <span style="font-size:9px;color:var(--text3);font-weight:400;letter-spacing:0;" id="bondTs">Loading...</span>
+  </div>
+  <div class="cview" style="flex:1;overflow-y:auto;" id="bondCont">
+    <div style="padding:40px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;"><span class="ai-dot"></span> FETCHING LIVE YIELD DATA...</div>
+  </div>`;
+
+  try {
+    const res = await fetch('/api/macro');
+    const {mkt, rbi, ts} = await res.json();
+    const tsEl = document.getElementById('bondTs');
+    if(tsEl) tsEl.textContent = 'Live · ' + new Date(ts).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) + ' IST';
+
+    const liveYield = (sym) => {
+      const q = mkt[sym];
+      if(!q?.price) return {val:'—', chg:'', live:false};
+      return {
+        val: q.price.toFixed(2)+'%',
+        chg: (q.up?'↑ +':'↓ ')+Math.abs(q.pct).toFixed(1)+'bps today',
+        live: true,
+        up: q.up
+      };
+    };
+
+    const india10y = liveYield('^IN10YT=RR');
+    const us10y    = liveYield('^TNX');
+
+    // Static rates (RBI — updated 6x/year max)
+    const rows = [
+      {label:'RBI REPO RATE',        val:rbi.repo_rate,   chg:rbi.repo_change,               color:'var(--accent)', live:false},
+      {label:'RBI REVERSE REPO',     val:'3.35%',          chg:'SDF: '+rbi.sdf,              color:'var(--text)',   live:false},
+      {label:'INDIA 10Y GSEC',       val:india10y.val,     chg:india10y.chg,                  color:'var(--yellow)', live:india10y.live},
+      {label:'INDIA 5Y GSEC',        val:'6.52%',          chg:'Approx — not on Yahoo',       color:'var(--text)',   live:false},
+      {label:'INDIA 2Y GSEC',        val:'6.41%',          chg:'Approx — not on Yahoo',       color:'var(--text)',   live:false},
+      {label:'AAA CORP BOND 10Y',    val:'7.40%',          chg:'Spread: ~72bps over GSec',    color:'var(--text)',   live:false},
+      {label:'AA CORP BOND 10Y',     val:'7.80%',          chg:'Spread: ~112bps over GSec',   color:'var(--text)',   live:false},
+      {label:'US 10Y TREASURY',      val:us10y.val,        chg:us10y.chg,                     color:'var(--orange)', live:us10y.live},
+    ];
+
+    document.getElementById('bondCont').innerHTML = `
     <div class="sec">
-      <div class="sec-title">RATES & YIELDS — LIVE</div>
+      <div class="sec-title">RATES & YIELDS</div>
       <table class="bond-tbl">
-        <thead><tr><th style="text-align:left">INSTRUMENT</th><th>YIELD / RATE</th><th>CHANGE</th></tr></thead>
-        <tbody>${bonds.map(b=>'<tr><td class="bond-label">'+b.label+'</td><td style="color:'+b.color+';font-weight:700;text-align:right;">'+b.val+'</td><td style="color:var(--text3);text-align:right;font-size:10px;">'+b.chg+'</td></tr>').join('')}</tbody>
+        <thead><tr><th style="text-align:left">INSTRUMENT</th><th>YIELD / RATE</th><th>CHANGE</th><th>SOURCE</th></tr></thead>
+        <tbody>${rows.map(b=>`<tr>
+          <td class="bond-label">${b.label}</td>
+          <td style="color:${b.color};font-weight:700;text-align:right;">${b.val}</td>
+          <td style="color:var(--text3);text-align:right;font-size:10px;">${b.chg}</td>
+          <td style="text-align:right;font-size:9px;color:${b.live?'var(--green)':'var(--text3)'};">${b.live?'● LIVE':'● STATIC'}</td>
+        </tr>`).join('')}</tbody>
       </table>
+      <div style="font-size:9px;color:var(--text3);padding:6px 0;">● LIVE = Yahoo Finance real-time &nbsp;·&nbsp; ● STATIC = RBI published rate, updated manually at MPC meetings</div>
     </div>
     <div class="sec">
-      <div class="sec-title">WHAT DO BOND YIELDS MEAN? — PLAIN LANGUAGE</div>
+      <div class="sec-title">WHAT DO BOND YIELDS MEAN?</div>
       <div class="bond-explain">
-        <strong>When GSec yield rises:</strong> It costs more for the government to borrow. Banks raise lending rates. Home loans, business loans become expensive. Companies earn less profit. Stock markets face pressure.<br><br>
-        <strong>When yield falls:</strong> Borrowing becomes cheaper. EMIs fall. Companies borrow to expand. Economy grows. Stocks typically rise.<br><br>
-        <strong>Credit Spread (AAA vs GSec):</strong> The difference between a corporate bond yield and a government bond yield. This spread reflects how risky the market thinks the corporate is. A widening spread means markets are becoming worried about corporate debt risk.<br><br>
-        <strong>US 10Y at 4.48%:</strong> When US yields are high, global money moves to safe US bonds instead of riskier markets like India. This causes FII selling and Rupee weakness in Indian markets.
+        <strong>When GSec yield rises:</strong> Borrowing costs up for everyone — government, banks, companies. EMIs rise. Stock markets face pressure as bonds become more attractive.<br><br>
+        <strong>When yield falls:</strong> Cheaper borrowing → more spending → higher profits → stocks rise. Post rate-cut India is a good example.<br><br>
+        <strong>Credit Spread:</strong> Difference between corporate bond yield and GSec yield. Widening spread = markets worried about corporate debt risk.<br><br>
+        <strong>US 10Y matters for India:</strong> High US yields pull global money into safe US bonds, causing FII selling in India and Rupee weakness.
       </div>
     </div>
     <div class="sec">
       <div class="sec-title">HOW THIS AFFECTS YOUR STOCKS</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div style="background:var(--rdim);border:1px solid var(--red);border-left:3px solid var(--red);padding:10px;font-size:11px;color:var(--text2);line-height:1.6;"><strong style="color:var(--red);">Rising Yields HURT:</strong><br>Real estate companies (expensive borrowing)<br>NBFCs and HFCs<br>Capital-heavy infrastructure<br>High-debt companies<br>Dividend stocks (bonds become competitive)</div>
-        <div style="background:var(--gdim);border:1px solid var(--green);border-left:3px solid var(--green);padding:10px;font-size:11px;color:var(--text2);line-height:1.6;"><strong style="color:var(--green);">Rising Yields HELP:</strong><br>Banks (higher lending margins)<br>Insurance companies<br>Zero-debt IT companies<br>Exporters (strong USD)<br>Short-duration debt funds</div>
+        <div style="background:var(--rdim);border:1px solid var(--red);border-left:3px solid var(--red);padding:10px;font-size:11px;color:var(--text2);line-height:1.6;"><strong style="color:var(--red);">Rising Yields HURT:</strong><br>Real estate (expensive loans)<br>NBFCs & HFCs<br>Infrastructure (capital heavy)<br>High-debt companies<br>Dividend stocks</div>
+        <div style="background:var(--gdim);border:1px solid var(--green);border-left:3px solid var(--green);padding:10px;font-size:11px;color:var(--text2);line-height:1.6;"><strong style="color:var(--green);">Rising Yields HELP:</strong><br>Banks (higher NIM)<br>Insurance companies<br>Zero-debt IT firms<br>Exporters (strong USD)<br>Short-duration debt funds</div>
       </div>
-    </div>
-  </div>`;
+    </div>`;
+  } catch(e) {
+    document.getElementById('bondCont').innerHTML = `<div style="padding:20px;color:var(--red);">Failed to load: ${e.message}</div>`;
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -1936,15 +2216,20 @@ async function refreshAI(){
 // ═══════════════════════════════════════════════
 // INSTANT TERMINAL
 // ═══════════════════════════════════════════════
-const iiData=[
-  {u:'RK_Sharma',i:'RK',v:true,t:'09:39',tx:'RBI holding repo again. 10Y GSec at 7.04. Duration plays look interesting.'},
-  {u:'MumbaiDesk',i:'MD',v:true,t:'09:37',tx:'RELIANCE block deal in JioFin likely — ~18L shares at ₹312 floor.'},
-  {u:'PuneAMC',i:'PA',v:false,t:'09:35',tx:'Anyone tracking the Smallcap 250 rebalance? 14 additions per NSE circular.'},
-  {u:'TradingFi',i:'TF',v:false,t:'09:33',tx:'SME illiquid stocks running again. Operators active. Be careful.'},
-];
+const iiData = []; // Instant Terminal community — coming soon
 function renderII(){
-  document.getElementById('iiMsgs').innerHTML=iiData.map(m=>`<div class="ii-msg"><div class="ii-av">${m.i}</div><div class="ii-body"><div class="ii-hd"><span class="ii-user">${m.u}</span>${m.v?'<span class="ii-badge">✦</span>':''}<span class="ii-time">${m.t}</span></div><div class="ii-text">${m.tx}</div></div></div>`).join('');
-  document.getElementById('iiMsgs').scrollTop=9999;
+  const container = document.getElementById('iiMsgs');
+  if(iiData.length===0){
+    container.innerHTML=`<div style="padding:40px 20px;text-align:center;font-family:var(--mono);">
+      <div style="font-size:28px;margin-bottom:12px;">⬡</div>
+      <div style="font-size:11px;color:var(--accent);letter-spacing:2px;font-weight:700;margin-bottom:8px;">INSTANT TERMINAL</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.7;margin-bottom:16px;">Live community desk for serious investors.<br>Block deals · Operator alerts · AMC views</div>
+      <div style="font-size:9px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);padding:8px 12px;border-radius:4px;">COMING SOON — Community feed launching soon.<br>No SMCAP499 pump groups. Verified desks only.</div>
+    </div>`;
+    return;
+  }
+  container.innerHTML=iiData.map(m=>`<div class="ii-msg"><div class="ii-av">${m.i}</div><div class="ii-body"><div class="ii-hd"><span class="ii-user">${m.u}</span>${m.v?'<span class="ii-badge">✦</span>':''}<span class="ii-time">${m.t}</span></div><div class="ii-text">${m.tx}</div></div></div>`).join('');
+  container.scrollTop=9999;
 }
 function sendII(){const i=document.getElementById('iiInp');const t=i.value.trim();if(!t)return;const now=new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false});iiData.push({u:'YOU',i:'YO',v:false,t:now,tx:t});renderII();i.value='';}
 document.getElementById('iiInp').addEventListener('keydown',e=>{if(e.key==='Enter')sendII();});
@@ -1952,17 +2237,92 @@ document.getElementById('iiInp').addEventListener('keydown',e=>{if(e.key==='Ente
 // ═══════════════════════════════════════════════
 // SEARCH
 // ═══════════════════════════════════════════════
+let NSE_MASTER = []; // Populated from /api/stocks on load
+
+async function loadStockMaster() {
+  try {
+    const res = await fetch('/api/stocks');
+    const json = await res.json();
+    if (json.stocks && json.stocks.length > 0) {
+      NSE_MASTER = json.stocks;
+      console.log('Stock master loaded:', NSE_MASTER.length, 'stocks from', json.source);
+    }
+  } catch(e) {
+    console.warn('Stock master load failed, search will use fallback:', e.message);
+    // Keep existing hardcoded fallback list below
+    NSE_MASTER = FALLBACK_MASTER;
+  }
+}
+
+// Small fallback for offline/API failure
+const FALLBACK_MASTER = [
+  {sym:'RELIANCE',name:'Reliance Industries Ltd',sector:'Oil & Gas'},
+  {sym:'TCS',name:'Tata Consultancy Services Ltd',sector:'IT'},
+  {sym:'HDFCBANK',name:'HDFC Bank Ltd',sector:'Banking'},
+  {sym:'INFY',name:'Infosys Ltd',sector:'IT'},
+  {sym:'ICICIBANK',name:'ICICI Bank Ltd',sector:'Banking'},
+  {sym:'SBIN',name:'State Bank of India',sector:'Banking'},
+  {sym:'BHARTIARTL',name:'Bharti Airtel Ltd',sector:'Telecom'},
+  {sym:'KOTAKBANK',name:'Kotak Mahindra Bank Ltd',sector:'Banking'},
+  {sym:'WIPRO',name:'Wipro Ltd',sector:'IT'},
+  {sym:'HCLTECH',name:'HCL Technologies Ltd',sector:'IT'},
+  {sym:'AXISBANK',name:'Axis Bank Ltd',sector:'Banking'},
+  {sym:'BAJFINANCE',name:'Bajaj Finance Ltd',sector:'NBFC'},
+  {sym:'SUNPHARMA',name:'Sun Pharmaceutical Industries',sector:'Pharma'},
+  {sym:'TATAMOTORS',name:'Tata Motors Ltd',sector:'Auto'},
+  {sym:'ZOMATO',name:'Eternal Ltd (formerly Zomato)',sector:'Consumer Tech'},
+  {sym:'APOLLOHOSP',name:'Apollo Hospitals Enterprise Ltd',sector:'Healthcare'},
+  {sym:'APOLLOTYRE',name:'Apollo Tyres Ltd',sector:'Auto Ancillary'},
+  {sym:'LEELAVENTURES',name:'Hotel Leelaventure Ltd (Leela Palaces)',sector:'Hospitality'},
+  {sym:'INDHOTEL',name:'Indian Hotels Company Ltd (Taj Hotels)',sector:'Hospitality'},
+  {sym:'EIHOTEL',name:'EIH Ltd (Oberoi Hotels)',sector:'Hospitality'},
+  {sym:'DLF',name:'DLF Ltd',sector:'Real Estate'},
+  {sym:'NAUKRI',name:'Info Edge India Ltd (Naukri)',sector:'Internet'},
+  {sym:'PAYTM',name:'One 97 Communications Ltd (Paytm)',sector:'FinTech'},
+  {sym:'IRCTC',name:'Indian Railway Catering & Tourism Corp',sector:'Travel'},
+  {sym:'INDIGO',name:'InterGlobe Aviation Ltd (IndiGo)',sector:'Aviation'},
+];
+
+
 const si2=document.getElementById('si'),sr2=document.getElementById('sr');
 let srTimer=null;
 si2.addEventListener('input',function(){
   const q=this.value.trim().toUpperCase();
   if(!q){sr2.classList.remove('open');return;}
-  // First show DB matches instantly
-  const m=Object.entries(DB).filter(([sym,s])=>sym.includes(q)||s.name.toUpperCase().includes(q));
-  const dbHTML=m.map(([sym,s])=>`<div class="sr-item" onmousedown="event.preventDefault();srSelect('${sym}')"><div><div class="sr-sym">${sym}</div><div class="sr-name">${s.name}</div></div><span class="sr-tag">${s.sector.split('·')[0].trim()}</span></div>`).join('');
-  // Add "search NSE" option for any query
-  const liveRow=`<div class="sr-item" onmousedown="event.preventDefault();srSelectLive('${q}')" style="border-top:1px solid var(--border);opacity:0.8;"><div><div class="sr-sym" style="color:var(--accent);">⌕ ${q}</div><div class="sr-name">Search NSE live data</div></div><span class="sr-tag" style="color:var(--accent);">LIVE</span></div>`;
-  sr2.innerHTML=dbHTML+liveRow;
+
+  // Search NSE_MASTER by symbol AND company name
+  const qLower = q.toLowerCase();
+  const masterMatches = NSE_MASTER.filter(s =>
+    s.sym.includes(q) ||
+    s.name.toUpperCase().includes(q) ||
+    s.name.toLowerCase().includes(qLower)
+  ).slice(0, 8);
+
+  // Also check already-loaded DB stocks
+  const dbExtra = Object.entries(DB)
+    .filter(([sym,s]) => !masterMatches.find(m=>m.sym===sym) && (sym.includes(q)||s.name.toUpperCase().includes(q)))
+    .slice(0,3)
+    .map(([sym,s]) => ({sym, name:s.name, sector:s.sector||''}));
+
+  const allMatches = [...masterMatches, ...dbExtra];
+
+  const matchHTML = allMatches.map(s => {
+    const inDB = !!DB[s.sym];
+    return `<div class="sr-item" onmousedown="event.preventDefault();srSelectLive('${s.sym}')">
+      <div>
+        <div class="sr-sym">${s.sym} ${inDB?'<span style="color:var(--green);font-size:8px;">●</span>':''}</div>
+        <div class="sr-name">${s.name}</div>
+      </div>
+      <span class="sr-tag">${s.sector}</span>
+    </div>`;
+  }).join('');
+
+  const liveRow = `<div class="sr-item" onmousedown="event.preventDefault();srSelectLive('${q}')" style="border-top:1px solid var(--border);opacity:0.8;">
+    <div><div class="sr-sym" style="color:var(--accent);">⌕ ${q}</div><div class="sr-name">Search any NSE ticker directly</div></div>
+    <span class="sr-tag" style="color:var(--accent);">LIVE</span>
+  </div>`;
+
+  sr2.innerHTML = (matchHTML || '') + liveRow;
   sr2.classList.add('open');
 });
 function srSelect(sym){
@@ -2038,6 +2398,7 @@ renderWLTabs();
 renderWLBody();
 renderII();
 renderAlerts();
+loadStockMaster(); // Load Nifty 500 from NSE API
 setTimeout(()=>{selectStock('RELIANCE');},80);
 
 // ═══════════════════════════════════════════════
@@ -2079,6 +2440,7 @@ async function renderLiveStock(sym){
     };
 
     // Always update DB[sym] with fresh live data + metrics
+    const builtMetrics = buildMetrics(f);
     DB[sym] = {
       name: d.name, full: d.name + ' · NSE',
       sector: f.sector || 'Unknown', industry: f.industry || '',
@@ -2087,7 +2449,7 @@ async function renderLiveStock(sym){
       health: 5.0, illiq: false, cap: 'unknown',
       ath: d.w52h, atl: d.w52l, w52h: d.w52h, w52l: d.w52l,
       high: d.high, low: d.low, vol: d.vol,
-      metrics: buildMetrics(f), warns: [], actions: [], filings: [],
+      metrics: builtMetrics, warns: [], actions: d.corpActions || [], filings: [],
       aiS: DB[sym]?.aiS || '',
       description: f.description || '',
       employees: f.employees || null,
