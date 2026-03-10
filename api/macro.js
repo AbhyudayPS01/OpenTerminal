@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   };
 
   const tickers = [
-    '^NSEI', '^BSESN', '^NSEBANK',
+    '^NSEI', '^BSESN', '^NSEBANK', 'NIFTY50FUT.NS',
     'USDINR=X', 'EURINR=X', 'GBPINR=X',
     '^GSPC', '^IXIC', '^DJI', '^FTSE', '^N225', '^HSI',
     'BZ=F', 'GC=F', 'SI=F',

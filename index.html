@@ -459,9 +459,12 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
   </div>
   <div class="topbar-right">
     <div class="idx-pill"><span class="idx-name">NIFTY</span><span class="idx-val" id="niftyVal">—</span><span class="idx-chg" id="niftyChg"></span></div>
+    <div class="idx-pill"><span class="idx-name">GIFT NIFTY</span><span class="idx-val" id="giftniftyVal">—</span><span class="idx-chg" id="giftniftyChg"></span></div>
     <div class="idx-pill"><span class="idx-name">SENSEX</span><span class="idx-val" id="sensexVal">—</span><span class="idx-chg" id="sensexChg"></span></div>
     <div class="idx-pill"><span class="idx-name">₹/$</span><span class="idx-val" id="usdinrVal">—</span><span class="idx-chg" id="usdinrChg"></span></div>
     <div class="idx-pill"><span class="idx-name">GOLD</span><span class="idx-val" id="goldVal">—</span><span class="idx-chg" id="goldChg"></span></div>
+    <div class="idx-pill"><span class="idx-name">SILVER</span><span class="idx-val" id="silverVal">—</span><span class="idx-chg" id="silverChg"></span></div>
+    <div class="idx-pill"><span class="idx-name">BRENT</span><span class="idx-val" id="brentVal">—</span><span class="idx-chg" id="brentChg"></span></div>
     <div class="clock" id="clock">--:--:--</div>
     <div class="alert-badge" onclick="showAlerts()">🔔 ALERTS<span class="alert-count" id="alertCount">3</span></div>
     <div class="theme-btn" onclick="toggleTheme()"><span id="themeIcon">☀</span><span id="themeLabel">LIGHT</span></div>
@@ -791,12 +794,18 @@ async function updateHeaderBar(){
     };
     const n = mkt['^NSEI'];
     if(n){ setEl('niftyVal', n.price.toLocaleString('en-IN',{maximumFractionDigits:0})); setChg('niftyChg', n.pct, n.up); }
+    const gn = mkt['NIFTY50FUT.NS'] || mkt['^NSEI'];
+    if(gn){ setEl('giftniftyVal', gn.price.toLocaleString('en-IN',{maximumFractionDigits:0})); setChg('giftniftyChg', gn.pct, gn.up); }
     const s = mkt['^BSESN'];
     if(s){ setEl('sensexVal', s.price.toLocaleString('en-IN',{maximumFractionDigits:0})); setChg('sensexChg', s.pct, s.up); }
     const u = mkt['USDINR=X'];
     if(u){ setEl('usdinrVal', u.price.toFixed(2)); setChg('usdinrChg', u.pct, u.up); }
     const g = mkt['GC=F'];
     if(g){ setEl('goldVal', '$'+g.price.toLocaleString('en-US',{maximumFractionDigits:0})); setChg('goldChg', g.pct, g.up); }
+    const sv = mkt['SI=F'];
+    if(sv){ setEl('silverVal', '$'+sv.price.toFixed(2)); setChg('silverChg', sv.pct, sv.up); }
+    const br = mkt['BZ=F'];
+    if(br){ setEl('brentVal', '$'+br.price.toFixed(2)); setChg('brentChg', br.pct, br.up); }
   } catch(e){}
 }
 updateHeaderBar();
