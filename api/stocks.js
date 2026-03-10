@@ -1,116 +1,81 @@
-// Serves the Nifty 500 stock list fetched from NSE India
-// Cached for 24 hours since the list changes rarely
+// Nifty 500 stock master — fetched from niftyindices.com (official NSE subsidiary)
+// This is a PUBLIC static CSV file, no auth/cookies needed — works from Vercel
+// Updated monthly by NSE Indices; we cache for 24hrs on Vercel CDN
 
 let cachedList = null;
-let cacheTime = 0;
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+let cacheTime  = 0;
+const TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=86400'); // 24hr CDN cache
+  res.setHeader('Cache-Control', 's-maxage=86400');
 
-  // Return cache if fresh
-  if (cachedList && Date.now() - cacheTime < CACHE_TTL) {
-    return res.status(200).json({ stocks: cachedList, source: 'cache' });
+  if (cachedList && Date.now() - cacheTime < TTL) {
+    return res.status(200).json({ stocks: cachedList, source: 'cache', count: cachedList.length });
   }
 
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Accept': '*/*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Referer': 'https://www.nseindia.com/',
-  };
+  // niftyindices.com is an NSE subsidiary — serves plain CSV, no bot protection
+  const CSV_URL = 'https://www.niftyindices.com/IndexConstituent/ind_nifty500list.csv';
 
   try {
-    // Step 1: hit NSE homepage to get cookies
-    const homeRes = await fetch('https://www.nseindia.com', { headers });
-    const cookies = homeRes.headers.get('set-cookie') || '';
-    const cookieStr = cookies.split(',').map(c => c.split(';')[0].trim()).join('; ');
+    const r = await fetch(CSV_URL, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Accept': 'text/csv,text/plain,*/*',
+        'Referer': 'https://www.niftyindices.com/',
+      }
+    });
 
-    // Step 2: fetch Nifty 500 constituents
-    const nse500Res = await fetch(
-      'https://www.nseindia.com/api/equity-stockIndices?index=NIFTY%20500',
-      { headers: { ...headers, 'Cookie': cookieStr } }
-    );
-    const nse500Json = await nse500Res.json();
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
-    if (!nse500Json?.data) throw new Error('No data from NSE');
+    const csv = await r.text();
 
-    // Map to compact format: sym, name, sector
-    const stocks = nse500Json.data
-      .filter(s => s.symbol && s.meta?.companyName)
-      .map(s => ({
-        sym: s.symbol,
-        name: s.meta.companyName,
-        sector: s.meta.industry || s.meta.sector || '',
-      }));
+    // CSV format: Company Name,Industry,Symbol,Series,ISIN Code
+    const lines = csv.trim().split('\n');
+    const stocks = [];
+
+    for (let i = 1; i < lines.length; i++) {  // skip header row
+      const cols = lines[i].split(',');
+      if (cols.length < 3) continue;
+
+      const name   = cols[0]?.trim();
+      const sector = cols[1]?.trim();
+      const sym    = cols[2]?.trim();
+
+      if (sym && name) {
+        stocks.push({ sym, name, sector: sector || '' });
+      }
+    }
+
+    if (stocks.length < 100) throw new Error(`Only got ${stocks.length} stocks — likely bad response`);
 
     cachedList = stocks;
-    cacheTime = Date.now();
+    cacheTime  = Date.now();
 
-    return res.status(200).json({ stocks, source: 'live', count: stocks.length });
+    return res.status(200).json({ stocks, source: 'niftyindices', count: stocks.length });
 
   } catch (e) {
-    // Fallback: return a hardcoded Nifty 50 if NSE fails
-    return res.status(200).json({
-      stocks: FALLBACK_STOCKS,
-      source: 'fallback',
-      error: e.message
-    });
+    // If live fetch fails, try GitHub raw fallback (same CSV mirrored)
+    try {
+      const ghUrl = 'https://raw.githubusercontent.com/Hpareek07/NSEData/master/ind_nifty500list.csv';
+      const r2 = await fetch(ghUrl);
+      const csv2 = await r2.text();
+      const lines = csv2.trim().split('\n');
+      const stocks = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 3) continue;
+        const name = cols[0]?.trim(), sector = cols[1]?.trim(), sym = cols[2]?.trim();
+        if (sym && name) stocks.push({ sym, name, sector: sector || '' });
+      }
+      if (stocks.length > 50) {
+        cachedList = stocks;
+        cacheTime  = Date.now();
+        return res.status(200).json({ stocks, source: 'github-mirror', count: stocks.length });
+      }
+    } catch(_) {}
+
+    // Final fallback — return error so frontend uses its own FALLBACK_MASTER
+    return res.status(500).json({ error: e.message, stocks: [] });
   }
 }
-
-// Fallback Nifty 50 if NSE API fails
-const FALLBACK_STOCKS = [
-  {sym:'RELIANCE',name:'Reliance Industries Ltd',sector:'Oil & Gas'},
-  {sym:'TCS',name:'Tata Consultancy Services Ltd',sector:'IT'},
-  {sym:'HDFCBANK',name:'HDFC Bank Ltd',sector:'Banking'},
-  {sym:'INFY',name:'Infosys Ltd',sector:'IT'},
-  {sym:'ICICIBANK',name:'ICICI Bank Ltd',sector:'Banking'},
-  {sym:'HINDUNILVR',name:'Hindustan Unilever Ltd',sector:'FMCG'},
-  {sym:'ITC',name:'ITC Ltd',sector:'FMCG'},
-  {sym:'SBIN',name:'State Bank of India',sector:'Banking'},
-  {sym:'BHARTIARTL',name:'Bharti Airtel Ltd',sector:'Telecom'},
-  {sym:'KOTAKBANK',name:'Kotak Mahindra Bank Ltd',sector:'Banking'},
-  {sym:'LT',name:'Larsen & Toubro Ltd',sector:'Capital Goods'},
-  {sym:'AXISBANK',name:'Axis Bank Ltd',sector:'Banking'},
-  {sym:'WIPRO',name:'Wipro Ltd',sector:'IT'},
-  {sym:'MARUTI',name:'Maruti Suzuki India Ltd',sector:'Auto'},
-  {sym:'HCLTECH',name:'HCL Technologies Ltd',sector:'IT'},
-  {sym:'BAJFINANCE',name:'Bajaj Finance Ltd',sector:'NBFC'},
-  {sym:'ASIANPAINT',name:'Asian Paints Ltd',sector:'Chemicals'},
-  {sym:'TITAN',name:'Titan Company Ltd',sector:'Consumer'},
-  {sym:'ADANIENT',name:'Adani Enterprises Ltd',sector:'Conglomerate'},
-  {sym:'ULTRACEMCO',name:'UltraTech Cement Ltd',sector:'Cement'},
-  {sym:'NESTLEIND',name:'Nestle India Ltd',sector:'FMCG'},
-  {sym:'BAJAJFINSV',name:'Bajaj Finserv Ltd',sector:'Financial Services'},
-  {sym:'TATAMOTORS',name:'Tata Motors Ltd',sector:'Auto'},
-  {sym:'TATASTEEL',name:'Tata Steel Ltd',sector:'Metals'},
-  {sym:'NTPC',name:'NTPC Ltd',sector:'Power'},
-  {sym:'POWERGRID',name:'Power Grid Corp of India',sector:'Power'},
-  {sym:'SUNPHARMA',name:'Sun Pharmaceutical Industries',sector:'Pharma'},
-  {sym:'TECHM',name:'Tech Mahindra Ltd',sector:'IT'},
-  {sym:'JSWSTEEL',name:'JSW Steel Ltd',sector:'Metals'},
-  {sym:'ONGC',name:'Oil & Natural Gas Corp Ltd',sector:'Energy'},
-  {sym:'COALINDIA',name:'Coal India Ltd',sector:'Mining'},
-  {sym:'BPCL',name:'Bharat Petroleum Corp Ltd',sector:'Energy'},
-  {sym:'INDUSINDBK',name:'IndusInd Bank Ltd',sector:'Banking'},
-  {sym:'GRASIM',name:'Grasim Industries Ltd',sector:'Diversified'},
-  {sym:'CIPLA',name:'Cipla Ltd',sector:'Pharma'},
-  {sym:'DRREDDY',name:'Dr Reddys Laboratories Ltd',sector:'Pharma'},
-  {sym:'HEROMOTOCO',name:'Hero MotoCorp Ltd',sector:'Auto'},
-  {sym:'EICHERMOT',name:'Eicher Motors Ltd',sector:'Auto'},
-  {sym:'BRITANNIA',name:'Britannia Industries Ltd',sector:'FMCG'},
-  {sym:'TATACONSUM',name:'Tata Consumer Products Ltd',sector:'FMCG'},
-  {sym:'HDFCLIFE',name:'HDFC Life Insurance Co Ltd',sector:'Insurance'},
-  {sym:'SBILIFE',name:'SBI Life Insurance Co Ltd',sector:'Insurance'},
-  {sym:'APOLLOHOSP',name:'Apollo Hospitals Enterprise Ltd',sector:'Healthcare'},
-  {sym:'DIVISLAB',name:'Divis Laboratories Ltd',sector:'Pharma'},
-  {sym:'ZOMATO',name:'Eternal Ltd (formerly Zomato)',sector:'Consumer Tech'},
-  {sym:'APOLLOTYRE',name:'Apollo Tyres Ltd',sector:'Auto Ancillary'},
-  {sym:'LEELAVENTURES',name:'Hotel Leelaventure Ltd (Leela Palaces)',sector:'Hospitality'},
-  {sym:'INDHOTEL',name:'Indian Hotels Company Ltd (Taj Hotels)',sector:'Hospitality'},
-  {sym:'EIHOTEL',name:'EIH Ltd (Oberoi Hotels)',sector:'Hospitality'},
-  {sym:'DLF',name:'DLF Ltd',sector:'Real Estate'},
-  {sym:'NAUKRI',name:'Info Edge India Ltd (Naukri)',sector:'Internet'},
-];
