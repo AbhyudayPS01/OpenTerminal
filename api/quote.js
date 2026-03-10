@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   };
 
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=300');
+  res.setHeader('Cache-Control', 's-maxage=60');
 
   try {
     // ── CHART REQUEST ──────────────────────────────────────────────
@@ -33,22 +33,29 @@ export default async function handler(req, res) {
     }
 
     // ── PRICE + FUNDAMENTALS ───────────────────────────────────────
-    // Use v8/chart with modules=financialData etc — same endpoint that works for charts
-    // This avoids quoteSummary which is heavily blocked on server IPs
+    // v8/chart with modules — SAME endpoint as chart, proven to work on Vercel
+    // Request 1yr range so meta has full stats + use modules param for fundamentals
+    const fmtc = n => {
+      if (n == null || isNaN(n)) return null;
+      if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
+      if (n >= 1e9)  return (n / 1e9).toFixed(2) + 'B';
+      if (n >= 1e7)  return (n / 1e7).toFixed(2) + ' Cr';
+      return n.toLocaleString('en-IN');
+    };
+
+    // Fetch chart with financialData modules included
     const modules = 'financialData,defaultKeyStatistics,summaryDetail,assetProfile,majorHoldersBreakdown,calendarEvents';
-    
-    // Try v8 chart first (most reliable — same one that loads the chart)
-    // Then fall back to quoteSummary endpoints
-    const priceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d&includePrePost=false`;
-    const priceRes = await fetch(priceUrl, { headers });
-    const priceJson = await priceRes.json();
-    const priceResult = priceJson?.chart?.result;
-    if (!priceResult || priceResult.length === 0) {
-      const errMsg = priceJson?.chart?.error?.description || 'Ticker not found on Yahoo Finance';
+    const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1y&includePrePost=false&modules=${encodeURIComponent(modules)}`;
+    const r1 = await fetch(chartUrl, { headers });
+    const j1 = await r1.json();
+    const result = j1?.chart?.result?.[0];
+
+    if (!result) {
+      const errMsg = j1?.chart?.error?.description || 'Ticker not found';
       return res.status(404).json({ error: errMsg });
     }
-    const meta = priceResult[0].meta;
 
+    const meta = result.meta;
     const price = meta.regularMarketPrice;
     const prev  = meta.chartPreviousClose || meta.previousClose;
     const chg   = price - prev;
@@ -67,78 +74,34 @@ export default async function handler(req, res) {
 
     if (full !== '1') return res.status(200).json(base);
 
-    // ── FUNDAMENTALS — try 4 endpoints in order ────────────────────
-    let r = null;
-    let _src = null;
+    // ── EXTRACT FUNDAMENTALS FROM CHART META ───────────────────────
+    // v8/chart meta contains: trailingPE, trailingAnnualDividendYield,
+    // regularMarketVolume, fiftyTwoWeekHigh/Low, marketCap (in exchangeDataDelayedBy)
+    // Plus the modules we requested get appended to the response
 
-    const qsUrls = [
-      // v7/finance/quote — lightweight, less blocked
-      { url: `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${ticker}&fields=trailingPE,forwardPE,priceToBook,trailingEps,bookValue,fiftyTwoWeekHigh,fiftyTwoWeekLow,marketCap,dividendYield,beta,regularMarketVolume,epsTrailingTwelveMonths`, type: 'v7quote' },
-      // quoteSummary endpoints
-      { url: `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}&corsDomain=finance.yahoo.com`, type: 'q1v10' },
-      { url: `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`, type: 'q2v10' },
-      { url: `https://query1.finance.yahoo.com/v11/finance/quoteSummary/${ticker}?modules=${modules}&formatted=false`, type: 'v11' },
-    ];
+    // Check if modules came back (they do when requested via modules param)
+    const fd = result.financialData        || {};
+    const ks = result.defaultKeyStatistics  || {};
+    const sd = result.summaryDetail         || {};
+    const ap = result.assetProfile          || {};
+    const mh = result.majorHoldersBreakdown || {};
+    const ce = result.calendarEvents        || {};
 
-    for (const { url, type } of qsUrls) {
-      try {
-        const resp = await fetch(url, { headers });
-        const j    = await resp.json();
-        if (type === 'v7quote') {
-          const q = j?.quoteResponse?.result?.[0];
-          if (q) { r = { _v7: q }; _src = type; break; }
-        } else {
-          if (j?.quoteSummary?.result?.length > 0) {
-            r = j.quoteSummary.result[0]; _src = type; break;
-          }
-        }
-      } catch(_) {}
-    }
+    const hasModules = Object.keys(fd).length > 0 || Object.keys(ks).length > 0;
 
-    // ── PARSE FUNDAMENTALS ─────────────────────────────────────────
-    const fmt  = v => v?.raw ?? v ?? null;
-    const fmtp = v => v?.raw != null ? (v.raw * 100).toFixed(2) : (typeof v === 'number' ? (v * 100).toFixed(2) : null);
-    const fmtc = v => {
-      const n = v?.raw ?? v;
-      if (n == null || isNaN(n)) return null;
-      if (n >= 1e12) return (n / 1e12).toFixed(2) + 'T';
-      if (n >= 1e9)  return (n / 1e9).toFixed(2) + 'B';
-      if (n >= 1e7)  return (n / 1e7).toFixed(2) + ' Cr';
-      return n.toLocaleString('en-IN');
-    };
+    let fundamentals;
 
-    let fundamentals = {};
-
-    if (r?._v7) {
-      // v7/quote fields — partial but reliable
-      const q = r._v7;
-      fundamentals = {
-        pe:        q.trailingPE || null,
-        forwardPE: q.forwardPE  || null,
-        pb:        q.priceToBook || null,
-        eps:       q.epsTrailingTwelveMonths || null,
-        bookValue: q.bookValue  || null,
-        marketCap: fmtc(q.marketCap),
-        divYield:  q.dividendYield ? (q.dividendYield * 100).toFixed(2) : null,
-        beta:      q.beta || null,
-        w52h:      q.fiftyTwoWeekHigh,
-        w52l:      q.fiftyTwoWeekLow,
-        _src,
-      };
-    } else if (r) {
-      const sd = r.summaryDetail        || {};
-      const ks = r.defaultKeyStatistics  || {};
-      const fd = r.financialData         || {};
-      const ap = r.assetProfile          || {};
-      const mh = r.majorHoldersBreakdown || {};
-      const ce = r.calendarEvents        || {};
+    if (hasModules) {
+      // Full fundamentals from modules
+      const fmt  = v => v?.raw ?? v ?? null;
+      const fmtp = v => v?.raw != null ? (v.raw * 100).toFixed(2) : (typeof v === 'number' ? (v * 100).toFixed(2) : null);
 
       fundamentals = {
-        pe:            fmt(sd.trailingPE),
-        forwardPE:     fmt(sd.forwardPE),
-        pb:            fmt(ks.priceToBook),
-        evEbitda:      fmt(ks.enterpriseToEbitda),
-        marketCap:     fmtc(sd.marketCap),
+        pe:            fmt(sd.trailingPE)          ?? meta.trailingPE ?? null,
+        forwardPE:     fmt(sd.forwardPE)           ?? null,
+        pb:            fmt(ks.priceToBook)         ?? null,
+        evEbitda:      fmt(ks.enterpriseToEbitda)  ?? null,
+        marketCap:     fmtc(sd.marketCap?.raw ?? meta.marketCap),
         roe:           fmtp(fd.returnOnEquity),
         roa:           fmtp(fd.returnOnAssets),
         profitMargin:  fmtp(fd.profitMargins),
@@ -148,72 +111,60 @@ export default async function handler(req, res) {
         currentRatio:  fmt(fd.currentRatio),
         revenueGrowth: fmtp(fd.revenueGrowth),
         earningsGrowth:fmtp(fd.earningsGrowth),
-        revenue:       fmtc(fd.totalRevenue),
-        netIncome:     fmtc(fd.netIncomeToCommon),
-        totalCash:     fmtc(fd.totalCash),
-        totalDebt:     fmtc(fd.totalDebt),
-        divYield:      fmtp(sd.dividendYield),
-        beta:          fmt(sd.beta),
-        eps:           fmt(ks.trailingEps),
-        bookValue:     fmt(ks.bookValue),
-        sector:        ap.sector          || null,
-        industry:      ap.industry        || null,
-        employees:     ap.fullTimeEmployees || null,
-        description:   ap.longBusinessSummary || null,
-        website:       ap.website         || null,
+        revenue:       fmtc(fd.totalRevenue?.raw),
+        netIncome:     fmtc(fd.netIncomeToCommon?.raw),
+        totalCash:     fmtc(fd.totalCash?.raw),
+        totalDebt:     fmtc(fd.totalDebt?.raw),
+        divYield:      fmtp(sd.dividendYield)      ?? (meta.trailingAnnualDividendYield ? (meta.trailingAnnualDividendYield * 100).toFixed(2) : null),
+        beta:          fmt(sd.beta)                ?? meta.beta ?? null,
+        eps:           fmt(ks.trailingEps)         ?? meta.epsTrailingTwelveMonths ?? null,
+        bookValue:     fmt(ks.bookValue)           ?? null,
+        sector:        ap.sector                  || null,
+        industry:      ap.industry                || null,
+        employees:     ap.fullTimeEmployees        || null,
+        description:   ap.longBusinessSummary      || null,
+        website:       ap.website                  || null,
         insiderPct:    fmtp(mh.insidersPercentHeld),
         instPct:       fmtp(mh.institutionsPercentHeld),
-        _src,
-
-        // ── Corp Actions ────────────────────────────────────────────
-        _earningsDate: ce.earnings?.earningsDate?.[0]?.raw,
-        _earningsHigh: ce.earnings?.earningsDate?.[1]?.raw,
-        _exDivDate:    sd.exDividendDate?.raw,
-        _divAmount:    sd.dividendRate?.raw,
-        _divYieldRaw:  sd.dividendYield?.raw,
-        _splitFactor:  ks.lastSplitFactor?.raw || ks.lastSplitFactor,
-        _splitDate:    ks.lastSplitDate?.raw,
+        _src: 'v8+modules',
       };
     } else {
-      // All endpoints failed — return base price with empty fundamentals
-      return res.status(200).json({ ...base, fundamentals: { _src: 'ALL_FAILED' }, corpActions: [] });
+      // Modules didn't come back — extract what we can from meta alone
+      // meta reliably has: trailingPE, marketCap, 52wk, volume, eps, beta, dividendYield
+      fundamentals = {
+        pe:        meta.trailingPE                  || null,
+        forwardPE: meta.forwardPE                   || null,
+        eps:       meta.epsTrailingTwelveMonths      || null,
+        beta:      meta.beta                        || null,
+        marketCap: fmtc(meta.marketCap),
+        divYield:  meta.trailingAnnualDividendYield ? (meta.trailingAnnualDividendYield * 100).toFixed(2) : null,
+        w52h:      meta.fiftyTwoWeekHigh,
+        w52l:      meta.fiftyTwoWeekLow,
+        _src: 'v8meta',
+      };
     }
 
-    // ── BUILD CORP ACTIONS ─────────────────────────────────────────
-    const fmtDate = ts => {
-      if (!ts) return null;
-      return new Date(ts * 1000).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
-    };
-
+    // ── CORP ACTIONS ───────────────────────────────────────────────
+    const fmtDate = ts => ts ? new Date(ts * 1000).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }) : null;
     const corpActions = [];
-    if (fundamentals._earningsDate) {
-      const lo = fundamentals._earningsDate, hi = fundamentals._earningsHigh;
-      corpActions.push({
-        type: 'earnings', label: 'EARNINGS', upcoming: true,
-        date: fmtDate(lo),
-        text: 'Quarterly results expected',
-        sub:  `Expected: ${hi && hi !== lo ? fmtDate(lo) + ' – ' + fmtDate(hi) : fmtDate(lo)}`,
-      });
+
+    if (ce.earnings?.earningsDate?.[0]?.raw) {
+      const lo = ce.earnings.earningsDate[0].raw;
+      const hi = ce.earnings.earningsDate[1]?.raw;
+      corpActions.push({ type:'earnings', label:'EARNINGS', upcoming:true, date:fmtDate(lo),
+        text:'Quarterly results expected', sub:`Expected: ${hi && hi!==lo ? fmtDate(lo)+' – '+fmtDate(hi) : fmtDate(lo)}` });
     }
-    if (fundamentals._exDivDate) {
-      corpActions.push({
-        type: 'div', label: 'DIVIDEND',
-        date: fmtDate(fundamentals._exDivDate),
-        upcoming: new Date(fundamentals._exDivDate * 1000) > new Date(),
-        text: fundamentals._divAmount ? `₹${fundamentals._divAmount.toFixed(2)} per share` : 'Dividend declared',
-        sub:  `Ex-Date: ${fmtDate(fundamentals._exDivDate)}${fundamentals._divYieldRaw ? ` · Yield: ${(fundamentals._divYieldRaw*100).toFixed(2)}%` : ''}`,
-      });
+    if (sd.exDividendDate?.raw) {
+      const ex = sd.exDividendDate.raw;
+      corpActions.push({ type:'div', label:'DIVIDEND', date:fmtDate(ex), upcoming: new Date(ex*1000)>new Date(),
+        text: sd.dividendRate?.raw ? `₹${sd.dividendRate.raw.toFixed(2)} per share` : 'Dividend declared',
+        sub: `Ex-Date: ${fmtDate(ex)}` });
     }
-    if (fundamentals._splitDate) {
-      corpActions.push({
-        type: 'split', label: 'SPLIT', upcoming: false,
-        date: fmtDate(fundamentals._splitDate),
-        text: fundamentals._splitFactor ? `Stock split ${fundamentals._splitFactor}` : 'Stock split',
-        sub:  `Effective: ${fmtDate(fundamentals._splitDate)}`,
-      });
+    if (ks.lastSplitDate?.raw) {
+      corpActions.push({ type:'split', label:'SPLIT', upcoming:false, date:fmtDate(ks.lastSplitDate.raw),
+        text: ks.lastSplitFactor ? `Stock split ${ks.lastSplitFactor.raw||ks.lastSplitFactor}` : 'Stock split',
+        sub: `Effective: ${fmtDate(ks.lastSplitDate.raw)}` });
     }
-    // Clean internal fields
-    ['_earningsDate','_earningsHigh','_exDivDate','_divAmount','_divYieldRaw','_splitFactor','_splitDate'].forEach(k => delete fundamentals[k]);
 
     return res.status(200).json({ ...base, fundamentals, corpActions });
 

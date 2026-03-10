@@ -2835,7 +2835,7 @@ async function renderLiveStock(sym){
     renderWLBody();
 
     // Debug: log what came back
-    console.log(`[${sym}] endpoint: ${f._endpoint || 'FAILED'} | metrics: ${builtMetrics.length} | PE: ${f.pe} | ROE: ${f.roe} | Rev: ${f.revenue}`);
+    console.log(`[${sym}] src: ${f._src||'FAILED'} | metrics: ${builtMetrics.length} | PE: ${f.pe} | ROE: ${f.roe} | Rev: ${f.revenue}`);
 
   } catch(e){
     if(hero) hero.innerHTML = `<div style="padding:20px;font-size:12px;color:var(--red);">Failed to load ${sym}: ${e.message}</div>`;
