@@ -2722,103 +2722,6 @@ setTimeout(()=>{selectStock('RELIANCE');},80);
 // ═══════════════════════════════════════════════
 // LIVE STOCK VIEW — for stocks not in DB
 // ═══════════════════════════════════════════════
-// Fetch fundamentals DIRECTLY from browser — YF blocks Vercel IPs but not browsers
-async function fetchFundamentals(sym) {
-  const ticker = sym + '.NS';
-  const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,majorHoldersBreakdown,calendarEvents';
-  const headers = {
-    'Accept': 'application/json',
-  };
-
-  const urls = [
-    `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}&corsDomain=finance.yahoo.com`,
-    `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}`,
-    `https://query1.finance.yahoo.com/v11/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}&formatted=false`,
-  ];
-
-  const fmtc = n => {
-    if (n == null || isNaN(n)) return null;
-    if (n >= 1e12) return (n/1e12).toFixed(2)+'T';
-    if (n >= 1e9)  return (n/1e9).toFixed(2)+'B';
-    if (n >= 1e7)  return (n/1e7).toFixed(2)+' Cr';
-    return n.toLocaleString('en-IN');
-  };
-
-  for (const url of urls) {
-    try {
-      const resp = await fetch(url, { headers });
-      const j    = await resp.json();
-      const r    = j?.quoteSummary?.result?.[0];
-      if (!r) continue;
-
-      const sd = r.summaryDetail        || {};
-      const ks = r.defaultKeyStatistics  || {};
-      const fd = r.financialData         || {};
-      const ap = r.assetProfile          || {};
-      const mh = r.majorHoldersBreakdown || {};
-      const ce = r.calendarEvents        || {};
-
-      const fmt  = v => v?.raw ?? v ?? null;
-      const fmtp = v => v?.raw != null ? (v.raw*100).toFixed(2) : (typeof v==='number' ? (v*100).toFixed(2) : null);
-
-      // Corp actions
-      const fmtDate = ts => ts ? new Date(ts*1000).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : null;
-      const corpActions = [];
-      if (ce.earnings?.earningsDate?.[0]?.raw) {
-        const lo=ce.earnings.earningsDate[0].raw, hi=ce.earnings.earningsDate[1]?.raw;
-        corpActions.push({type:'earnings',label:'EARNINGS',upcoming:true,date:fmtDate(lo),
-          text:'Quarterly results expected',sub:`Expected: ${hi&&hi!==lo?fmtDate(lo)+' – '+fmtDate(hi):fmtDate(lo)}`});
-      }
-      if (sd.exDividendDate?.raw) {
-        const ex=sd.exDividendDate.raw;
-        corpActions.push({type:'div',label:'DIVIDEND',date:fmtDate(ex),upcoming:new Date(ex*1000)>new Date(),
-          text:sd.dividendRate?.raw?`₹${sd.dividendRate.raw.toFixed(2)} per share`:'Dividend declared',
-          sub:`Ex-Date: ${fmtDate(ex)}${sd.dividendYield?.raw?` · Yield: ${(sd.dividendYield.raw*100).toFixed(2)}%`:''}`});
-      }
-      if (ks.lastSplitDate?.raw) {
-        corpActions.push({type:'split',label:'SPLIT',upcoming:false,date:fmtDate(ks.lastSplitDate.raw),
-          text:ks.lastSplitFactor?`Stock split ${ks.lastSplitFactor?.raw||ks.lastSplitFactor}`:'Stock split',
-          sub:`Effective: ${fmtDate(ks.lastSplitDate.raw)}`});
-      }
-
-      return {
-        pe:            fmt(sd.trailingPE),
-        forwardPE:     fmt(sd.forwardPE),
-        pb:            fmt(ks.priceToBook),
-        evEbitda:      fmt(ks.enterpriseToEbitda),
-        marketCap:     fmtc(sd.marketCap?.raw),
-        roe:           fmtp(fd.returnOnEquity),
-        roa:           fmtp(fd.returnOnAssets),
-        profitMargin:  fmtp(fd.profitMargins),
-        grossMargin:   fmtp(fd.grossMargins),
-        ebitdaMargin:  fmtp(fd.ebitdaMargins),
-        debtToEquity:  fmt(fd.debtToEquity),
-        currentRatio:  fmt(fd.currentRatio),
-        revenueGrowth: fmtp(fd.revenueGrowth),
-        earningsGrowth:fmtp(fd.earningsGrowth),
-        revenue:       fmtc(fd.totalRevenue?.raw),
-        netIncome:     fmtc(fd.netIncomeToCommon?.raw),
-        totalCash:     fmtc(fd.totalCash?.raw),
-        totalDebt:     fmtc(fd.totalDebt?.raw),
-        divYield:      fmtp(sd.dividendYield),
-        beta:          fmt(sd.beta),
-        eps:           fmt(ks.trailingEps),
-        bookValue:     fmt(ks.bookValue),
-        sector:        ap.sector || null,
-        industry:      ap.industry || null,
-        employees:     ap.fullTimeEmployees || null,
-        description:   ap.longBusinessSummary || null,
-        website:       ap.website || null,
-        insiderPct:    fmtp(mh.insidersPercentHeld),
-        instPct:       fmtp(mh.institutionsPercentHeld),
-        corpActions,
-        _src: 'browser-direct',
-      };
-    } catch(e) { /* try next */ }
-  }
-  return { _src: 'failed' }; // all endpoints failed
-}
-
 async function renderLiveStock(sym){
   // Always restore terminal shell (other tabs nuke centerPanel)
   const panel = document.getElementById('centerPanel');
@@ -2840,14 +2743,10 @@ async function renderLiveStock(sym){
   if(cview) cview.innerHTML = `<div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--text3);">Fetching live data...</div>`;
 
   try {
-    // Price via Vercel (fast, cached) — fundamentals direct from browser to YF (Vercel IP is blocked)
-    const [priceRes, fundRes] = await Promise.all([
-      fetch(`/api/quote?sym=${sym}.NS`),
-      fetchFundamentals(sym),
-    ]);
-    const d = await priceRes.json();
+    const res = await fetch(`/api/quote?sym=${sym}.NS&full=1`);
+    const d = await res.json();
     if(d.error) throw new Error(d.error);
-    const f = fundRes;
+    const f = d.fundamentals || {};
 
     const up = d.up;
     const arr = up ? '▲' : '▼';
@@ -2907,7 +2806,7 @@ async function renderLiveStock(sym){
       health: 5.0, illiq: false, cap: 'unknown',
       ath: d.w52h, atl: d.w52l, w52h: d.w52h, w52l: d.w52l,
       high: d.high, low: d.low, vol: d.vol,
-      metrics: builtMetrics, warns: [], actions: f.corpActions || d.corpActions || [], filings: [],
+      metrics: builtMetrics, warns: [], actions: d.corpActions || [], filings: [],
       aiS: DB[sym]?.aiS || '',
       description: f.description || '',
       employees: f.employees || null,
