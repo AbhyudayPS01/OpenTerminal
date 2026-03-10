@@ -822,11 +822,14 @@ function renderWLBody(){
     const illiq=s?s.illiq:false;
     return `<div class="wi ${sym===activeSym?'active':''}" onclick="selectStock('${sym}')">
       <div><div class="wi-sym ${up?'up':'dn'}">${sym}</div><div class="wi-name">${name}</div></div>
-      <div style="text-align:right;">
-        ${price?`<div class="wi-price ${up?'up':'dn'}">₹${price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-        <div class="wi-chg ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(pct).toFixed(2)}%</div>`
-        :`<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;">tap to load</div>`}
-        ${illiq?'<span class="wi-flag flag-illiq">ILLIQ</span>':''}${inPort?'<span class="wi-flag flag-port">PORT</span>':''}
+      <div style="text-align:right;display:flex;align-items:center;gap:6px;">
+        <div>
+          ${price?`<div class="wi-price ${up?'up':'dn'}">₹${price.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          <div class="wi-chg ${up?'up':'dn'}">${up?'▲':'▼'} ${Math.abs(pct).toFixed(2)}%</div>`
+          :`<div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px;">tap to load</div>`}
+          ${illiq?'<span class="wi-flag flag-illiq">ILLIQ</span>':''}${inPort?'<span class="wi-flag flag-port">PORT</span>':''}
+        </div>
+        <div onclick="event.stopPropagation();removeFromWL('${sym}')" style="font-size:14px;color:var(--text3);padding:4px 6px;cursor:pointer;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--red)';this.style.background='rgba(255,80,80,0.1)'" onmouseout="this.style.color='var(--text3)';this.style.background='transparent'">×</div>
       </div>
     </div>`;
   }).join('');
@@ -837,6 +840,19 @@ function addWL(){wlMode='add';document.getElementById('wlNameTitle').textContent
 function renameWL(){wlMode='rename';document.getElementById('wlNameTitle').textContent='RENAME WATCHLIST';document.getElementById('wlNI').value=watchlists[activeWL].name;openModal('wlNameOverlay');setTimeout(()=>document.getElementById('wlNI').focus(),100);}
 function confirmWLName(){const v=document.getElementById('wlNI').value.trim().toUpperCase();if(!v)return;if(wlMode==='add'){watchlists.push({name:v,stocks:[]});activeWL=watchlists.length-1;}else watchlists[activeWL].name=v;closeModal('wlNameOverlay');renderWLTabs();renderWLBody();}
 function deleteWL(){if(watchlists.length<=1){alert('Need at least one watchlist.');return;}if(!confirm(`Delete "${watchlists[activeWL].name}"?`))return;watchlists.splice(activeWL,1);activeWL=Math.max(0,activeWL-1);renderWLTabs();renderWLBody();}
+
+function removeFromWL(sym){
+  const wl=watchlists[activeWL];
+  const idx=wl.stocks.indexOf(sym);
+  if(idx===-1)return;
+  wl.stocks.splice(idx,1);
+  if(activeSym===sym){
+    activeSym=wl.stocks[0]||'';
+    if(activeSym) selectStock(activeSym);
+    else document.getElementById('centerPanel').innerHTML='<div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--text3);">No stocks in watchlist. Search to add one.</div>';
+  }
+  renderWLBody();
+}
 document.getElementById('wlNI').addEventListener('keydown',e=>{if(e.key==='Enter')confirmWLName();if(e.key==='Escape')closeModal('wlNameOverlay');});
 
 // ═══════════════════════════════════════════════
@@ -1055,6 +1071,8 @@ function renderPriceTable(s){
     <tr><td class="pt-lbl">ALL TIME LOW</td><td class="pt-v" style="color:var(--red)">${fmt(s.atl)} ${badge(s.price,s.atl,false)}</td></tr>
     <tr><td class="pt-lbl">52 WEEK HIGH</td><td class="pt-v" style="color:var(--green)">${fmt(s.w52h)} ${badge(s.price,s.w52h,true)}</td></tr>
     <tr><td class="pt-lbl">52 WEEK LOW</td><td class="pt-v" style="color:var(--red)">${fmt(s.w52l)} ${badge(s.price,s.w52l,false)}</td></tr>
+    ${s.high?`<tr><td class="pt-lbl">DAY HIGH</td><td class="pt-v" style="color:var(--green)">${fmt(s.high)}</td></tr>`:''}
+    ${s.low?`<tr><td class="pt-lbl">DAY LOW</td><td class="pt-v" style="color:var(--red)">${fmt(s.low)}</td></tr>`:''}
   </table>`;
 }
 
@@ -2025,22 +2043,39 @@ async function renderLiveStock(sym){
     const d = await res.json();
     if(d.error) throw new Error(d.error);
 
-    // Add to DB temporarily so watchlist shows price
-    if(!DB[sym]){
-      DB[sym] = {
-        name: d.name, full: d.name + ' · NSE',
-        sector: d.fundamentals?.sector || 'Unknown',
-        sectorKey: 'general',
-        ind: 'general',
-        price: d.price, chg: d.chg, pct: d.pct, up: d.up,
-        health: 5.0, illiq: false, cap: 'unknown',
-        ath: d.w52h, atl: d.w52l, w52h: d.w52h, w52l: d.w52l,
-        metrics: [], warns: [], actions: [], filings: [],
-        aiS: '', fitnessQ: [], shareholding: null,
-      };
-    }
-
     const f = d.fundamentals || {};
+
+    // Build metrics array from live fundamentals
+    const buildMetrics = (f) => {
+      const m = [];
+      const add = (n, v, s, ind) => { if(v != null && v !== '—' && v !== null) m.push({n, v: String(v), s: s||'', ind: ind||'general'}); };
+      add('P/E RATIO',     f.pe      ? f.pe.toFixed(1)       : null, f.pe>30?'warn':f.pe<15?'good':'', 'general');
+      add('P/B RATIO',     f.pb      ? f.pb.toFixed(2)       : null, f.pb>5?'warn':'', 'general');
+      add('ROE',           f.roe     ? f.roe+'%'             : null, f.roe>15?'good':f.roe<5?'warn':'', 'general');
+      add('DEBT/EQUITY',   f.debtToEquity != null ? f.debtToEquity.toFixed(2) : null, f.debtToEquity>1?'warn':'', 'general');
+      add('REVENUE',       f.revenue || null, '', 'general');
+      add('NET INCOME',    f.netIncome || null, '', 'general');
+      add('PROFIT MARGIN', f.profitMargin ? f.profitMargin+'%' : null, f.profitMargin>15?'good':f.profitMargin<5?'warn':'', 'general');
+      add('REV GROWTH',    f.revenueGrowth ? (parseFloat(f.revenueGrowth)>=0?'+':'')+f.revenueGrowth+'%' : null, parseFloat(f.revenueGrowth)>10?'good':parseFloat(f.revenueGrowth)<0?'warn':'', 'general');
+      add('MARKET CAP',    f.marketCap || null, '', 'general');
+      add('EPS',           f.eps != null ? f.eps.toFixed(2) : null, '', 'general');
+      add('DIV YIELD',     f.divYield ? f.divYield+'%' : null, '', 'general');
+      add('BETA',          f.beta != null ? f.beta.toFixed(2) : null, f.beta>1.5?'warn':'', 'general');
+      return m;
+    };
+
+    // Always update DB[sym] with fresh live data + metrics
+    DB[sym] = {
+      name: d.name, full: d.name + ' · NSE',
+      sector: f.sector || 'Unknown',
+      sectorKey: 'general', ind: 'general',
+      price: d.price, chg: d.chg, pct: d.pct, up: d.up,
+      health: 5.0, illiq: false, cap: 'unknown',
+      ath: d.w52h, atl: d.w52l, w52h: d.w52h, w52l: d.w52l,
+      high: d.high, low: d.low,
+      metrics: buildMetrics(f), warns: [], actions: [], filings: [],
+      aiS: DB[sym]?.aiS || '', fitnessQ: [], shareholding: null,
+    };
     const up = d.up;
     const clr = up ? 'var(--green)' : 'var(--red)';
     const arr = up ? '▲' : '▼';
