@@ -1039,17 +1039,21 @@ function setCTab(el,tab){
 
 function renderCView(){
   const cv=document.getElementById('cview'); if(!cv)return;
+  // Sync ctab active state
+  document.querySelectorAll('.ctab').forEach(t=>{
+    const tab=t.getAttribute('onclick').match(/'(\w+)'\)/)?.[1];
+    t.classList.toggle('active', tab===activeCtab);
+  });
   const cs=`<div style="padding:30px 20px;text-align:center;">
   <div style="font-family:var(--mono);font-size:28px;color:var(--border2);margin-bottom:12px;">⬡</div>
   <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:8px;">COMING SOON</div>
   <div style="font-size:11px;color:var(--text3);line-height:1.7;">Live data integration in progress.<br>This will pull directly from BSE/NSE filings.</div>
 </div>`;
-  if(activeCtab==='overview') cv.innerHTML=renderOverview();
+  if(activeCtab==='overview') { cv.innerHTML=renderOverview(); drawChart(document.querySelector('.tf.active')?.textContent||'1D'); }
   else if(activeCtab==='sector') cv.innerHTML=cs;
   else if(activeCtab==='peers') cv.innerHTML=cs;
   else if(activeCtab==='shareholding') cv.innerHTML=cs;
-  else if(activeCtab==='actions') cv.innerHTML=cs;
-  if(activeCtab==='overview') drawChart(document.querySelector('.tf.active')?.textContent||'1D');
+  else if(activeCtab==='actions') cv.innerHTML=renderActionsTab();
 }
 
 function renderOverview(){
@@ -1065,8 +1069,8 @@ function renderOverview(){
   </div>` : '';
   return `
   <div class="sec">
-    <div class="sec-title">KEY METRICS <span style="color:var(--text3);font-weight:400;letter-spacing:0;font-size:9px;">— click any number to understand it</span></div>
-    <div class="mg">${mgHTML||'<div style="padding:16px;color:var(--text3);font-size:11px;font-family:var(--mono);">⬡ Fundamental data unavailable for this stock.<br>Yahoo Finance may not cover this ticker.</div>'}</div>
+    <div class="sec-title">KEY METRICS <span style="color:var(--text3);font-weight:400;letter-spacing:0;font-size:9px;">— click any metric to understand it${s.metrics?.length ? ` · ${s.metrics.length} fields loaded` : ''}</span></div>
+    <div class="mg">${mgHTML||'<div style="padding:16px;color:var(--text3);font-size:11px;font-family:var(--mono);">⬡ Fundamental data unavailable.<br>Open browser console (F12) and look for the [SYM] endpoint line to debug.</div>'}</div>
     ${priceTable}
   </div>
   ${aboutHTML}
@@ -1239,6 +1243,12 @@ function renderActions(s){
       ● Yahoo Finance · NSE India &nbsp;|&nbsp; Last updated: ${new Date().toLocaleTimeString('en-IN')}
     </div>
   </div>`;
+}
+
+function renderActionsTab(){
+  const s = DB[activeSym];
+  if(!s) return `<div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--text3);">Select a stock first.</div>`;
+  return renderActions(s);
 }
 
 async function loadNSEActions(sym) {
@@ -2237,23 +2247,331 @@ document.getElementById('iiInp').addEventListener('keydown',e=>{if(e.key==='Ente
 // ═══════════════════════════════════════════════
 // SEARCH
 // ═══════════════════════════════════════════════
-let NSE_MASTER = []; // Populated from /api/stocks on load
+const NSE_MASTER = [
+  {sym:'RELIANCE',name:'Reliance Industries Ltd',sector:'Oil & Gas'},
+  {sym:'TCS',name:'Tata Consultancy Services Ltd',sector:'IT'},
+  {sym:'HDFCBANK',name:'HDFC Bank Ltd',sector:'Banking'},
+  {sym:'INFY',name:'Infosys Ltd',sector:'IT'},
+  {sym:'ICICIBANK',name:'ICICI Bank Ltd',sector:'Banking'},
+  {sym:'HINDUNILVR',name:'Hindustan Unilever Ltd',sector:'FMCG'},
+  {sym:'ITC',name:'ITC Ltd',sector:'FMCG'},
+  {sym:'SBIN',name:'State Bank of India',sector:'Banking'},
+  {sym:'BHARTIARTL',name:'Bharti Airtel Ltd',sector:'Telecom'},
+  {sym:'KOTAKBANK',name:'Kotak Mahindra Bank Ltd',sector:'Banking'},
+  {sym:'LT',name:'Larsen & Toubro Ltd',sector:'Capital Goods'},
+  {sym:'AXISBANK',name:'Axis Bank Ltd',sector:'Banking'},
+  {sym:'WIPRO',name:'Wipro Ltd',sector:'IT'},
+  {sym:'MARUTI',name:'Maruti Suzuki India Ltd',sector:'Auto'},
+  {sym:'HCLTECH',name:'HCL Technologies Ltd',sector:'IT'},
+  {sym:'BAJFINANCE',name:'Bajaj Finance Ltd',sector:'NBFC'},
+  {sym:'ASIANPAINT',name:'Asian Paints Ltd',sector:'Paints'},
+  {sym:'TITAN',name:'Titan Company Ltd',sector:'Consumer Goods'},
+  {sym:'ADANIENT',name:'Adani Enterprises Ltd',sector:'Conglomerate'},
+  {sym:'ULTRACEMCO',name:'UltraTech Cement Ltd',sector:'Cement'},
+  {sym:'NESTLEIND',name:'Nestle India Ltd',sector:'FMCG'},
+  {sym:'BAJAJFINSV',name:'Bajaj Finserv Ltd',sector:'Financial Services'},
+  {sym:'TATAMOTORS',name:'Tata Motors Ltd',sector:'Auto'},
+  {sym:'TATASTEEL',name:'Tata Steel Ltd',sector:'Metals'},
+  {sym:'NTPC',name:'NTPC Ltd',sector:'Power'},
+  {sym:'POWERGRID',name:'Power Grid Corp of India Ltd',sector:'Power'},
+  {sym:'SUNPHARMA',name:'Sun Pharmaceutical Industries Ltd',sector:'Pharma'},
+  {sym:'TECHM',name:'Tech Mahindra Ltd',sector:'IT'},
+  {sym:'JSWSTEEL',name:'JSW Steel Ltd',sector:'Metals'},
+  {sym:'ONGC',name:'Oil & Natural Gas Corp Ltd',sector:'Energy'},
+  {sym:'COALINDIA',name:'Coal India Ltd',sector:'Mining'},
+  {sym:'BPCL',name:'Bharat Petroleum Corp Ltd',sector:'Energy'},
+  {sym:'INDUSINDBK',name:'IndusInd Bank Ltd',sector:'Banking'},
+  {sym:'GRASIM',name:'Grasim Industries Ltd',sector:'Diversified'},
+  {sym:'CIPLA',name:'Cipla Ltd',sector:'Pharma'},
+  {sym:'DRREDDY',name:'Dr Reddys Laboratories Ltd',sector:'Pharma'},
+  {sym:'HEROMOTOCO',name:'Hero MotoCorp Ltd',sector:'Auto'},
+  {sym:'EICHERMOT',name:'Eicher Motors Ltd',sector:'Auto'},
+  {sym:'BRITANNIA',name:'Britannia Industries Ltd',sector:'FMCG'},
+  {sym:'TATACONSUM',name:'Tata Consumer Products Ltd',sector:'FMCG'},
+  {sym:'HDFCLIFE',name:'HDFC Life Insurance Co Ltd',sector:'Insurance'},
+  {sym:'SBILIFE',name:'SBI Life Insurance Co Ltd',sector:'Insurance'},
+  {sym:'APOLLOHOSP',name:'Apollo Hospitals Enterprise Ltd',sector:'Healthcare'},
+  {sym:'DIVISLAB',name:'Divis Laboratories Ltd',sector:'Pharma'},
+  {sym:'ZOMATO',name:'Eternal Ltd (Zomato)',sector:'Consumer Tech'},
+  {sym:'BEL',name:'Bharat Electronics Ltd',sector:'Defence'},
+  {sym:'TRENT',name:'Trent Ltd (Zudio)',sector:'Retail'},
+  {sym:'BAJAJ-AUTO',name:'Bajaj Auto Ltd',sector:'Auto'},
+  {sym:'SHRIRAMFIN',name:'Shriram Finance Ltd',sector:'NBFC'},
+  {sym:'ADANIPORTS',name:'Adani Ports & SEZ Ltd',sector:'Infrastructure'},
+  {sym:'DLF',name:'DLF Ltd',sector:'Real Estate'},
+  {sym:'NAUKRI',name:'Info Edge India Ltd',sector:'Internet'},
+  {sym:'PIDILITIND',name:'Pidilite Industries Ltd',sector:'Chemicals'},
+  {sym:'SIEMENS',name:'Siemens Ltd',sector:'Capital Goods'},
+  {sym:'HAVELLS',name:'Havells India Ltd',sector:'Electricals'},
+  {sym:'MUTHOOTFIN',name:'Muthoot Finance Ltd',sector:'NBFC'},
+  {sym:'SBICARD',name:'SBI Cards & Payment Services Ltd',sector:'Financial Services'},
+  {sym:'TATAPOWER',name:'Tata Power Co Ltd',sector:'Power'},
+  {sym:'GODREJCP',name:'Godrej Consumer Products Ltd',sector:'FMCG'},
+  {sym:'DMART',name:'Avenue Supermarts Ltd (DMart)',sector:'Retail'},
+  {sym:'MARICO',name:'Marico Ltd',sector:'FMCG'},
+  {sym:'AMBUJACEM',name:'Ambuja Cements Ltd',sector:'Cement'},
+  {sym:'ACC',name:'ACC Ltd',sector:'Cement'},
+  {sym:'BERGEPAINT',name:'Berger Paints India Ltd',sector:'Paints'},
+  {sym:'VEDL',name:'Vedanta Ltd',sector:'Metals & Mining'},
+  {sym:'NMDC',name:'NMDC Ltd',sector:'Mining'},
+  {sym:'RECLTD',name:'REC Ltd',sector:'Power Finance'},
+  {sym:'PFC',name:'Power Finance Corp Ltd',sector:'Power Finance'},
+  {sym:'HAL',name:'Hindustan Aeronautics Ltd',sector:'Defence'},
+  {sym:'BHEL',name:'Bharat Heavy Electricals Ltd',sector:'Capital Goods'},
+  {sym:'HINDALCO',name:'Hindalco Industries Ltd',sector:'Metals'},
+  {sym:'SAIL',name:'Steel Authority of India Ltd',sector:'Metals'},
+  {sym:'CUMMINSIND',name:'Cummins India Ltd',sector:'Capital Goods'},
+  {sym:'ABB',name:'ABB India Ltd',sector:'Capital Goods'},
+  {sym:'BOSCHLTD',name:'Bosch Ltd',sector:'Auto Ancillary'},
+  {sym:'MOTHERSON',name:'Samvardhana Motherson International Ltd',sector:'Auto Ancillary'},
+  {sym:'BHARATFORG',name:'Bharat Forge Ltd',sector:'Auto Ancillary'},
+  {sym:'BALKRISIND',name:'Balkrishna Industries Ltd',sector:'Auto Ancillary'},
+  {sym:'APOLLOTYRE',name:'Apollo Tyres Ltd',sector:'Auto Ancillary'},
+  {sym:'MRF',name:'MRF Ltd',sector:'Auto Ancillary'},
+  {sym:'CEATLTD',name:'CEAT Ltd',sector:'Auto Ancillary'},
+  {sym:'SCHAEFFLER',name:'Schaeffler India Ltd',sector:'Auto Ancillary'},
+  {sym:'SUNDRMFAST',name:'Sundram Fasteners Ltd',sector:'Auto Ancillary'},
+  {sym:'CHOLAFIN',name:'Cholamandalam Investment & Finance',sector:'NBFC'},
+  {sym:'M&MFIN',name:'Mahindra & Mahindra Financial Services',sector:'NBFC'},
+  {sym:'LICHOUSFIN',name:'LIC Housing Finance Ltd',sector:'Housing Finance'},
+  {sym:'PNBHOUSING',name:'PNB Housing Finance Ltd',sector:'Housing Finance'},
+  {sym:'CANFINHOME',name:'Can Fin Homes Ltd',sector:'Housing Finance'},
+  {sym:'ICICIGI',name:'ICICI Lombard General Insurance',sector:'Insurance'},
+  {sym:'ICICIPRULI',name:'ICICI Prudential Life Insurance',sector:'Insurance'},
+  {sym:'HDFCAMC',name:'HDFC Asset Management Co Ltd',sector:'Asset Management'},
+  {sym:'INDIANB',name:'Indian Bank',sector:'Banking'},
+  {sym:'CANBK',name:'Canara Bank',sector:'Banking'},
+  {sym:'BANKBARODA',name:'Bank of Baroda',sector:'Banking'},
+  {sym:'PNB',name:'Punjab National Bank',sector:'Banking'},
+  {sym:'UNIONBANK',name:'Union Bank of India',sector:'Banking'},
+  {sym:'IDFCFIRSTB',name:'IDFC First Bank Ltd',sector:'Banking'},
+  {sym:'BANDHANBNK',name:'Bandhan Bank Ltd',sector:'Banking'},
+  {sym:'FEDERALBNK',name:'Federal Bank Ltd',sector:'Banking'},
+  {sym:'RBLBANK',name:'RBL Bank Ltd',sector:'Banking'},
+  {sym:'YESBANK',name:'Yes Bank Ltd',sector:'Banking'},
+  {sym:'KARURVYSYA',name:'Karur Vysya Bank Ltd',sector:'Banking'},
+  {sym:'DCBBANK',name:'DCB Bank Ltd',sector:'Banking'},
+  {sym:'SOUTHBANK',name:'South Indian Bank Ltd',sector:'Banking'},
+  {sym:'LTIM',name:'LTIMindtree Ltd',sector:'IT'},
+  {sym:'MPHASIS',name:'Mphasis Ltd',sector:'IT'},
+  {sym:'COFORGE',name:'Coforge Ltd',sector:'IT'},
+  {sym:'PERSISTENT',name:'Persistent Systems Ltd',sector:'IT'},
+  {sym:'OFSS',name:'Oracle Financial Services Software Ltd',sector:'IT'},
+  {sym:'KPIT',name:'KPIT Technologies Ltd',sector:'IT'},
+  {sym:'TATAELXSI',name:'Tata Elxsi Ltd',sector:'IT'},
+  {sym:'LTTS',name:'L&T Technology Services Ltd',sector:'IT'},
+  {sym:'TANLA',name:'Tanla Platforms Ltd',sector:'IT'},
+  {sym:'RATEGAIN',name:'RateGain Travel Technologies Ltd',sector:'IT'},
+  {sym:'AFFLE',name:'Affle India Ltd',sector:'Ad Tech'},
+  {sym:'INDIAMART',name:'IndiaMART InterMESH Ltd',sector:'Internet'},
+  {sym:'JUSTDIAL',name:'Just Dial Ltd',sector:'Internet'},
+  {sym:'PAYTM',name:'One 97 Communications Ltd (Paytm)',sector:'FinTech'},
+  {sym:'POLICYBZR',name:'PB Fintech Ltd (PolicyBazaar)',sector:'FinTech'},
+  {sym:'NYKAA',name:'FSN E-Commerce Ventures (Nykaa)',sector:'E-Commerce'},
+  {sym:'CARTRADE',name:'CarTrade Tech Ltd',sector:'Internet'},
+  {sym:'DELHIVERY',name:'Delhivery Ltd',sector:'Logistics'},
+  {sym:'LUPIN',name:'Lupin Ltd',sector:'Pharma'},
+  {sym:'AUROPHARMA',name:'Aurobindo Pharma Ltd',sector:'Pharma'},
+  {sym:'TORNTPHARM',name:'Torrent Pharmaceuticals Ltd',sector:'Pharma'},
+  {sym:'ALKEM',name:'Alkem Laboratories Ltd',sector:'Pharma'},
+  {sym:'ABBOTINDIA',name:'Abbott India Ltd',sector:'Pharma'},
+  {sym:'GLAXO',name:'GSK Pharmaceuticals Ltd',sector:'Pharma'},
+  {sym:'PFIZER',name:'Pfizer Ltd',sector:'Pharma'},
+  {sym:'IPCALAB',name:'IPCA Laboratories Ltd',sector:'Pharma'},
+  {sym:'LALPATHLAB',name:'Dr Lal PathLabs Ltd',sector:'Healthcare'},
+  {sym:'METROPOLIS',name:'Metropolis Healthcare Ltd',sector:'Healthcare'},
+  {sym:'MAXHEALTH',name:'Max Healthcare Institute Ltd',sector:'Healthcare'},
+  {sym:'FORTIS',name:'Fortis Healthcare Ltd',sector:'Healthcare'},
+  {sym:'NH',name:'Narayana Hrudayalaya Ltd',sector:'Healthcare'},
+  {sym:'RAINBOW',name:'Rainbow Childrens Medicare Ltd',sector:'Healthcare'},
+  {sym:'MEDANTA',name:'Global Health Ltd (Medanta)',sector:'Healthcare'},
+  {sym:'KIMS',name:'Krishna Institute of Medical Sciences',sector:'Healthcare'},
+  {sym:'LAURUSLABS',name:'Laurus Labs Ltd',sector:'Pharma'},
+  {sym:'NATCOPHARM',name:'Natco Pharma Ltd',sector:'Pharma'},
+  {sym:'AJANTPHARM',name:'Ajanta Pharma Ltd',sector:'Pharma'},
+  {sym:'JBCHEPHARM',name:'JB Chemicals & Pharmaceuticals',sector:'Pharma'},
+  {sym:'ERIS',name:'Eris Lifesciences Ltd',sector:'Pharma'},
+  {sym:'GLENMARK',name:'Glenmark Pharmaceuticals Ltd',sector:'Pharma'},
+  {sym:'BIOCON',name:'Biocon Ltd',sector:'Pharma'},
+  {sym:'GRANULES',name:'Granules India Ltd',sector:'Pharma'},
+  {sym:'SUVENPHAR',name:'Suven Pharmaceuticals Ltd',sector:'Pharma'},
+  {sym:'EMCURE',name:'Emcure Pharmaceuticals Ltd',sector:'Pharma'},
+  {sym:'DABUR',name:'Dabur India Ltd',sector:'FMCG'},
+  {sym:'EMAMILTD',name:'Emami Ltd',sector:'FMCG'},
+  {sym:'COLPAL',name:'Colgate-Palmolive India Ltd',sector:'FMCG'},
+  {sym:'PGHH',name:'Procter & Gamble Hygiene',sector:'FMCG'},
+  {sym:'JYOTHYLAB',name:'Jyothy Labs Ltd',sector:'FMCG'},
+  {sym:'GILLETTE',name:'Gillette India Ltd',sector:'FMCG'},
+  {sym:'ZYDUSWELL',name:'Zydus Wellness Ltd',sector:'FMCG'},
+  {sym:'BIKAJI',name:'Bikaji Foods International Ltd',sector:'FMCG'},
+  {sym:'PATANJALI',name:'Patanjali Foods Ltd',sector:'FMCG'},
+  {sym:'VBLLTD',name:'Varun Beverages Ltd',sector:'Beverages'},
+  {sym:'UNITDSPR',name:'United Spirits Ltd',sector:'Beverages'},
+  {sym:'UBL',name:'United Breweries Ltd',sector:'Beverages'},
+  {sym:'RADICO',name:'Radico Khaitan Ltd',sector:'Beverages'},
+  {sym:'JUBLFOOD',name:'Jubilant FoodWorks Ltd (Dominos)',sector:'QSR'},
+  {sym:'WESTLIFE',name:'Westlife Foodworld Ltd (McDonalds)',sector:'QSR'},
+  {sym:'DEVYANI',name:'Devyani International Ltd (KFC)',sector:'QSR'},
+  {sym:'SAPPHIRE',name:'Sapphire Foods India Ltd',sector:'QSR'},
+  {sym:'BARBEQUE',name:'Barbeque-Nation Hospitality Ltd',sector:'Restaurants'},
+  {sym:'VMART',name:'V-Mart Retail Ltd',sector:'Retail'},
+  {sym:'SHOPERSTOP',name:'Shoppers Stop Ltd',sector:'Retail'},
+  {sym:'ABFRL',name:'Aditya Birla Fashion & Retail Ltd',sector:'Retail'},
+  {sym:'MANYAVAR',name:'Vedant Fashions Ltd (Manyavar)',sector:'Retail'},
+  {sym:'KALYANKJIL',name:'Kalyan Jewellers India Ltd',sector:'Jewellery'},
+  {sym:'SENCO',name:'Senco Gold Ltd',sector:'Jewellery'},
+  {sym:'THANGAMAYL',name:'Thangamayil Jewellery Ltd',sector:'Jewellery'},
+  {sym:'M&M',name:'Mahindra & Mahindra Ltd',sector:'Auto'},
+  {sym:'ASHOKLEY',name:'Ashok Leyland Ltd',sector:'Auto'},
+  {sym:'ESCORTS',name:'Escorts Kubota Ltd',sector:'Auto'},
+  {sym:'TIINDIA',name:'Tube Investments of India Ltd',sector:'Auto Ancillary'},
+  {sym:'ENDURANCE',name:'Endurance Technologies Ltd',sector:'Auto Ancillary'},
+  {sym:'SUPRAJIT',name:'Suprajit Engineering Ltd',sector:'Auto Ancillary'},
+  {sym:'CRAFTSMAN',name:'Craftsman Automation Ltd',sector:'Auto Ancillary'},
+  {sym:'GABRIEL',name:'Gabriel India Ltd',sector:'Auto Ancillary'},
+  {sym:'OLECTRA',name:'Olectra Greentech Ltd',sector:'EV'},
+  {sym:'EXIDEIND',name:'Exide Industries Ltd',sector:'Batteries'},
+  {sym:'AMARAJABAT',name:'Amara Raja Energy & Mobility Ltd',sector:'Batteries'},
+  {sym:'RVNL',name:'Rail Vikas Nigam Ltd',sector:'Infrastructure'},
+  {sym:'IRB',name:'IRB Infrastructure Developers Ltd',sector:'Infrastructure'},
+  {sym:'KNRCON',name:'KNR Constructions Ltd',sector:'Infrastructure'},
+  {sym:'NCC',name:'NCC Ltd',sector:'Infrastructure'},
+  {sym:'PNCINFRA',name:'PNC Infratech Ltd',sector:'Infrastructure'},
+  {sym:'GPPL',name:'Gujarat Pipavav Port Ltd',sector:'Ports'},
+  {sym:'CONCOR',name:'Container Corp of India Ltd',sector:'Logistics'},
+  {sym:'BLUEDART',name:'Blue Dart Express Ltd',sector:'Logistics'},
+  {sym:'MAHLOG',name:'Mahindra Logistics Ltd',sector:'Logistics'},
+  {sym:'TVSSUPPLY',name:'TVS Supply Chain Solutions Ltd',sector:'Logistics'},
+  {sym:'GODREJPROP',name:'Godrej Properties Ltd',sector:'Real Estate'},
+  {sym:'PRESTIGE',name:'Prestige Estates Projects Ltd',sector:'Real Estate'},
+  {sym:'BRIGADE',name:'Brigade Enterprises Ltd',sector:'Real Estate'},
+  {sym:'OBEROIRLTY',name:'Oberoi Realty Ltd',sector:'Real Estate'},
+  {sym:'PHOENIXLTD',name:'Phoenix Mills Ltd',sector:'Real Estate'},
+  {sym:'LODHA',name:'Macrotech Developers Ltd (Lodha)',sector:'Real Estate'},
+  {sym:'SIGNATURE',name:'Signature Global India Ltd',sector:'Real Estate'},
+  {sym:'SUNTECK',name:'Sunteck Realty Ltd',sector:'Real Estate'},
+  {sym:'ADANIGREEN',name:'Adani Green Energy Ltd',sector:'Renewable Energy'},
+  {sym:'ADANIPOWER',name:'Adani Power Ltd',sector:'Power'},
+  {sym:'TORNTPOWER',name:'Torrent Power Ltd',sector:'Power'},
+  {sym:'CESC',name:'CESC Ltd',sector:'Power'},
+  {sym:'JSPL',name:'Jindal Steel & Power Ltd',sector:'Steel & Power'},
+  {sym:'SUZLON',name:'Suzlon Energy Ltd',sector:'Wind Energy'},
+  {sym:'INOXWIND',name:'Inox Wind Ltd',sector:'Wind Energy'},
+  {sym:'NHPC',name:'NHPC Ltd',sector:'Hydro Power'},
+  {sym:'SJVN',name:'SJVN Ltd',sector:'Hydro Power'},
+  {sym:'CGPOWER',name:'CG Power & Industrial Solutions Ltd',sector:'Capital Goods'},
+  {sym:'VOLTAS',name:'Voltas Ltd',sector:'Consumer Durables'},
+  {sym:'BLUESTARCO',name:'Blue Star Ltd',sector:'Consumer Durables'},
+  {sym:'WHIRLPOOL',name:'Whirlpool of India Ltd',sector:'Consumer Durables'},
+  {sym:'SYMPHONY',name:'Symphony Ltd',sector:'Consumer Durables'},
+  {sym:'VGUARD',name:'V-Guard Industries Ltd',sector:'Consumer Durables'},
+  {sym:'POLYCAB',name:'Polycab India Ltd',sector:'Cables & Wires'},
+  {sym:'FINOLEX',name:'Finolex Cables Ltd',sector:'Cables & Wires'},
+  {sym:'KEIIND',name:'KEI Industries Ltd',sector:'Cables & Wires'},
+  {sym:'RRKABEL',name:'RR Kabel Ltd',sector:'Cables & Wires'},
+  {sym:'SRF',name:'SRF Ltd',sector:'Chemicals'},
+  {sym:'ATUL',name:'Atul Ltd',sector:'Chemicals'},
+  {sym:'DEEPAKNTR',name:'Deepak Nitrite Ltd',sector:'Chemicals'},
+  {sym:'NAVINFLUOR',name:'Navin Fluorine International Ltd',sector:'Chemicals'},
+  {sym:'ALKYLAMINE',name:'Alkyl Amines Chemicals Ltd',sector:'Chemicals'},
+  {sym:'FINEORG',name:'Fine Organic Industries Ltd',sector:'Chemicals'},
+  {sym:'GALAXYSURF',name:'Galaxy Surfactants Ltd',sector:'Chemicals'},
+  {sym:'ROSSARI',name:'Rossari Biotech Ltd',sector:'Chemicals'},
+  {sym:'VINATIORGA',name:'Vinati Organics Ltd',sector:'Chemicals'},
+  {sym:'NOCIL',name:'NOCIL Ltd',sector:'Chemicals'},
+  {sym:'CLEAN',name:'Clean Science & Technology Ltd',sector:'Chemicals'},
+  {sym:'TATACHEM',name:'Tata Chemicals Ltd',sector:'Chemicals'},
+  {sym:'GNFC',name:'Gujarat Narmada Valley Fertilizers',sector:'Fertilizers'},
+  {sym:'CHAMBLFERT',name:'Chambal Fertilisers & Chemicals Ltd',sector:'Fertilizers'},
+  {sym:'COROMANDEL',name:'Coromandel International Ltd',sector:'Fertilizers'},
+  {sym:'UPL',name:'UPL Ltd',sector:'Agrochemicals'},
+  {sym:'PIIND',name:'PI Industries Ltd',sector:'Agrochemicals'},
+  {sym:'RALLIS',name:'Rallis India Ltd',sector:'Agrochemicals'},
+  {sym:'SHREECEM',name:'Shree Cement Ltd',sector:'Cement'},
+  {sym:'DALMIACEM',name:'Dalmia Bharat Ltd',sector:'Cement'},
+  {sym:'JKCEMENT',name:'JK Cement Ltd',sector:'Cement'},
+  {sym:'RAMCOCEM',name:'Ramco Cements Ltd',sector:'Cement'},
+  {sym:'INDIACEM',name:'India Cements Ltd',sector:'Cement'},
+  {sym:'BIRLACORPN',name:'Birla Corporation Ltd',sector:'Cement'},
+  {sym:'JKLAKSHMI',name:'JK Lakshmi Cement Ltd',sector:'Cement'},
+  {sym:'KAJARIACER',name:'Kajaria Ceramics Ltd',sector:'Building Materials'},
+  {sym:'CERA',name:'Cera Sanitaryware Ltd',sector:'Building Materials'},
+  {sym:'ASTRAL',name:'Astral Ltd',sector:'Building Materials'},
+  {sym:'SUPREMEIND',name:'Supreme Industries Ltd',sector:'Building Materials'},
+  {sym:'PRINCEPIPE',name:'Prince Pipes & Fittings Ltd',sector:'Building Materials'},
+  {sym:'INDHOTEL',name:'Indian Hotels Co Ltd (Taj)',sector:'Hospitality'},
+  {sym:'EIHOTEL',name:'EIH Ltd (Oberoi)',sector:'Hospitality'},
+  {sym:'LEELAVENTURES',name:'Hotel Leelaventure Ltd (Leela Palaces)',sector:'Hospitality'},
+  {sym:'LEMONTREE',name:'Lemon Tree Hotels Ltd',sector:'Hospitality'},
+  {sym:'CHALET',name:'Chalet Hotels Ltd',sector:'Hospitality'},
+  {sym:'MHRIL',name:'Mahindra Holidays & Resorts India',sector:'Hospitality'},
+  {sym:'GMRAIRPORT',name:'GMR Airports Infrastructure Ltd',sector:'Aviation'},
+  {sym:'INDIGO',name:'InterGlobe Aviation Ltd (IndiGo)',sector:'Aviation'},
+  {sym:'SPICEJET',name:'SpiceJet Ltd',sector:'Aviation'},
+  {sym:'IRCTC',name:'Indian Railway Catering & Tourism Corp',sector:'Travel'},
+  {sym:'THOMASCOOK',name:'Thomas Cook India Ltd',sector:'Travel'},
+  {sym:'EASEMYTRIP',name:'Easy Trip Planners Ltd (EaseMyTrip)',sector:'Travel Tech'},
+  {sym:'ZEEL',name:'Zee Entertainment Enterprises Ltd',sector:'Media'},
+  {sym:'SUNTV',name:'Sun TV Network Ltd',sector:'Media'},
+  {sym:'PVRINOX',name:'PVR INOX Ltd',sector:'Entertainment'},
+  {sym:'NAZARA',name:'Nazara Technologies Ltd',sector:'Gaming'},
+  {sym:'TATACOMM',name:'Tata Communications Ltd',sector:'Telecom'},
+  {sym:'ROUTE',name:'Route Mobile Ltd',sector:'Telecom Tech'},
+  {sym:'VODAFONEIDEA',name:'Vodafone Idea Ltd (Vi)',sector:'Telecom'},
+  {sym:'BEML',name:'BEML Ltd',sector:'Defence'},
+  {sym:'MAZDOCK',name:'Mazagon Dock Shipbuilders Ltd',sector:'Defence'},
+  {sym:'COCHINSHIP',name:'Cochin Shipyard Ltd',sector:'Defence'},
+  {sym:'GRSE',name:'Garden Reach Shipbuilders & Engineers',sector:'Defence'},
+  {sym:'PARAS',name:'Paras Defence & Space Technologies',sector:'Defence'},
+  {sym:'DATAPATTNS',name:'Data Patterns India Ltd',sector:'Defence'},
+  {sym:'SOLARINDS',name:'Solar Industries India Ltd',sector:'Defence'},
+  {sym:'ZENTEC',name:'Zen Technologies Ltd',sector:'Defence Tech'},
+  {sym:'ANGELONE',name:'Angel One Ltd',sector:'Broking'},
+  {sym:'MOTILALOFS',name:'Motilal Oswal Financial Services',sector:'Financial Services'},
+  {sym:'360ONE',name:'360 ONE WAM Ltd',sector:'Wealth Management'},
+  {sym:'NIPPONLIFE',name:'Nippon India Life Asset Management',sector:'Asset Management'},
+  {sym:'UTIAMC',name:'UTI Asset Management Co Ltd',sector:'Asset Management'},
+  {sym:'AADHARHFC',name:'Aadhar Housing Finance Ltd',sector:'Housing Finance'},
+  {sym:'HOMEFIRST',name:'Home First Finance Company India',sector:'Housing Finance'},
+  {sym:'APTUS',name:'Aptus Value Housing Finance India Ltd',sector:'Housing Finance'},
+  {sym:'AAVAS',name:'Aavas Financiers Ltd',sector:'Housing Finance'},
+  {sym:'IRFC',name:'Indian Railway Finance Corp Ltd',sector:'Finance'},
+  {sym:'GAIL',name:'GAIL India Ltd',sector:'Gas'},
+  {sym:'IGL',name:'Indraprastha Gas Ltd',sector:'Gas Distribution'},
+  {sym:'MGL',name:'Mahanagar Gas Ltd',sector:'Gas Distribution'},
+  {sym:'ATGL',name:'Adani Total Gas Ltd',sector:'Gas Distribution'},
+  {sym:'PETRONET',name:'Petronet LNG Ltd',sector:'Gas'},
+  {sym:'HINDPETRO',name:'Hindustan Petroleum Corp Ltd',sector:'Energy'},
+  {sym:'MRPL',name:'Mangalore Refinery & Petrochemicals',sector:'Energy'},
+  {sym:'CASTROLIND',name:'Castrol India Ltd',sector:'Lubricants'},
+  {sym:'AIAENG',name:'AIA Engineering Ltd',sector:'Capital Goods'},
+  {sym:'GRINDWELL',name:'Grindwell Norton Ltd',sector:'Capital Goods'},
+  {sym:'TIMKEN',name:'Timken India Ltd',sector:'Capital Goods'},
+  {sym:'SKF',name:'SKF India Ltd',sector:'Capital Goods'},
+  {sym:'PAGEIND',name:'Page Industries Ltd (Jockey)',sector:'Textiles'},
+  {sym:'RAYMOND',name:'Raymond Ltd',sector:'Textiles'},
+  {sym:'WELSPUNIND',name:'Welspun India Ltd',sector:'Textiles'},
+  {sym:'TRIDENT',name:'Trident Ltd',sector:'Textiles'},
+  {sym:'VARDHMAN',name:'Vardhman Textiles Ltd',sector:'Textiles'},
+  {sym:'KPRMILL',name:'KPR Mill Ltd',sector:'Textiles'},
+  {sym:'GOKEX',name:'Gokaldas Exports Ltd',sector:'Textiles'},
+  {sym:'AVANTIFEED',name:'Avanti Feeds Ltd',sector:'Aquaculture'},
+  {sym:'KRBL',name:'KRBL Ltd (India Gate)',sector:'Food Processing'},
+  {sym:'LTFOODS',name:'LT Foods Ltd (Daawat)',sector:'Food Processing'},
+  {sym:'TTKPRESTIG',name:'TTK Prestige Ltd',sector:'Consumer Durables'},
+  {sym:'AEGISLOG',name:'Aegis Logistics Ltd',sector:'Logistics'},
+  {sym:'HSCL',name:'Himadri Speciality Chemical Ltd',sector:'Chemicals'},
+  {sym:'TEJASNET',name:'Tejas Networks Ltd',sector:'Telecom Equipment'},
+  {sym:'SURYAROSNI',name:'Surya Roshni Ltd',sector:'Lighting'},
+  {sym:'UFLEX',name:'Uflex Ltd',sector:'Packaging'},
+  {sym:'POLYPLEX',name:'Polyplex Corp Ltd',sector:'Packaging'},
+];
 
-async function loadStockMaster() {
-  try {
-    const res = await fetch('/api/stocks');
-    const json = await res.json();
-    if (json.stocks && json.stocks.length > 0) {
-      NSE_MASTER = json.stocks;
-      console.log('Stock master loaded:', NSE_MASTER.length, 'stocks from', json.source);
-    }
-  } catch(e) {
-    console.warn('Stock master load failed, search will use fallback:', e.message);
-    // Keep existing hardcoded fallback list below
-    NSE_MASTER = FALLBACK_MASTER;
-  }
+// Search master is embedded — no network call needed
+// Update NSE_MASTER array quarterly when NSE rebalances
+function loadStockMaster() {
+  console.log('Stock master ready:', NSE_MASTER.length, 'stocks (embedded)');
 }
-
 // Small fallback for offline/API failure
 const FALLBACK_MASTER = [
   {sym:'RELIANCE',name:'Reliance Industries Ltd',sector:'Oil & Gas'},
@@ -2398,14 +2716,27 @@ renderWLTabs();
 renderWLBody();
 renderII();
 renderAlerts();
-loadStockMaster(); // Load Nifty 500 from NSE API
+loadStockMaster();
 setTimeout(()=>{selectStock('RELIANCE');},80);
 
 // ═══════════════════════════════════════════════
 // LIVE STOCK VIEW — for stocks not in DB
 // ═══════════════════════════════════════════════
 async function renderLiveStock(sym){
-  // Show loading in hero area only — preserve tab structure
+  // Always restore terminal shell (other tabs nuke centerPanel)
+  const panel = document.getElementById('centerPanel');
+  if(!document.getElementById('stockHero')){
+    panel.innerHTML = `
+      <div class="hero" id="stockHero"></div>
+      <div class="ctabs" id="ctabs">
+        <div class="ctab ${activeCtab==='overview'?'active':''}" onclick="setCTab(this,'overview')">OVERVIEW</div>
+        <div class="ctab ${activeCtab==='sector'?'active':''}" onclick="setCTab(this,'sector')">SECTOR</div>
+        <div class="ctab ${activeCtab==='peers'?'active':''}" onclick="setCTab(this,'peers')">PEERS</div>
+        <div class="ctab ${activeCtab==='shareholding'?'active':''}" onclick="setCTab(this,'shareholding')">SHAREHOLDING</div>
+        <div class="ctab ${activeCtab==='actions'?'active':''}" onclick="setCTab(this,'actions')">CORP ACTIONS</div>
+      </div>
+      <div class="cview" id="cview"></div>`;
+  }
   const hero = document.getElementById('stockHero');
   const cview = document.getElementById('cview');
   if(hero) hero.innerHTML = `<div style="padding:20px;font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;"><span class="ai-dot"></span> LOADING ${sym}...</div>`;
@@ -2420,22 +2751,48 @@ async function renderLiveStock(sym){
     const up = d.up;
     const arr = up ? '▲' : '▼';
 
-    // Build metrics array from live fundamentals
+    // Build metrics array from live fundamentals — all Yahoo Finance fields
     const buildMetrics = (f) => {
       const m = [];
-      const add = (n, v, s, ind) => { if(v != null && v !== null) m.push({n, v: String(v), s: s||'', ind: ind||'general'}); };
-      add('P/E RATIO',     f.pe      ? f.pe.toFixed(1)       : null, f.pe>30?'warn':f.pe<15?'good':'', 'general');
-      add('P/B RATIO',     f.pb      ? f.pb.toFixed(2)       : null, f.pb>5?'warn':'', 'general');
-      add('ROE',           f.roe     ? f.roe+'%'             : null, parseFloat(f.roe)>15?'good':parseFloat(f.roe)<5?'warn':'', 'general');
-      add('DEBT/EQUITY',   f.debtToEquity != null ? f.debtToEquity.toFixed(2) : null, f.debtToEquity>1?'warn':'', 'general');
-      add('REVENUE',       f.revenue || null, '', 'general');
-      add('NET INCOME',    f.netIncome || null, '', 'general');
-      add('PROFIT MARGIN', f.profitMargin ? f.profitMargin+'%' : null, parseFloat(f.profitMargin)>15?'good':parseFloat(f.profitMargin)<5?'warn':'', 'general');
-      add('REV GROWTH',    f.revenueGrowth ? (parseFloat(f.revenueGrowth)>=0?'+':'')+f.revenueGrowth+'%' : null, parseFloat(f.revenueGrowth)>10?'good':parseFloat(f.revenueGrowth)<0?'warn':'', 'general');
-      add('MARKET CAP',    f.marketCap || null, '', 'general');
-      add('EPS',           f.eps != null ? f.eps.toFixed(2) : null, '', 'general');
-      add('DIV YIELD',     f.divYield ? f.divYield+'%' : null, '', 'general');
-      add('BETA',          f.beta != null ? f.beta.toFixed(2) : null, f.beta>1.5?'warn':'', 'general');
+      const n = (v) => v != null && v !== '' && !isNaN(parseFloat(v));
+      const add = (label, val, status, ind) => { if(val != null && val !== '') m.push({n:label, v:String(val), s:status||'', ind:ind||'general'}); };
+
+      // Valuation
+      add('MARKET CAP',     f.marketCap, '', 'general');
+      add('P/E (TTM)',       n(f.pe)            ? f.pe.toFixed(1)           : null, f.pe>40?'warn':f.pe>0&&f.pe<15?'good':'', 'general');
+      add('FORWARD P/E',    n(f.forwardPE)      ? f.forwardPE.toFixed(1)   : null, f.forwardPE>40?'warn':f.forwardPE>0&&f.forwardPE<15?'good':'', 'general');
+      add('P/B RATIO',      n(f.pb)             ? f.pb.toFixed(2)          : null, f.pb>5?'warn':f.pb>0&&f.pb<1?'good':'', 'general');
+      add('EV/EBITDA',      n(f.evEbitda)       ? f.evEbitda.toFixed(1)    : null, f.evEbitda>20?'warn':'', 'general');
+      add('EPS (TTM)',       n(f.eps)            ? '₹'+f.eps.toFixed(2)    : null, f.eps>0?'good':f.eps<0?'warn':'', 'general');
+      add('BOOK VALUE',     n(f.bookValue)       ? '₹'+f.bookValue.toFixed(2) : null, '', 'general');
+
+      // Profitability
+      add('REVENUE',        f.revenue, '', 'general');
+      add('NET INCOME',     f.netIncome, '', 'general');
+      add('GROSS MARGIN',   f.grossMargin       ? f.grossMargin+'%'        : null, parseFloat(f.grossMargin)>40?'good':parseFloat(f.grossMargin)<10?'warn':'', 'general');
+      add('PROFIT MARGIN',  f.profitMargin      ? f.profitMargin+'%'       : null, parseFloat(f.profitMargin)>15?'good':parseFloat(f.profitMargin)<5?'warn':'', 'general');
+      add('EBITDA MARGIN',  f.ebitdaMargin      ? f.ebitdaMargin+'%'       : null, parseFloat(f.ebitdaMargin)>20?'good':parseFloat(f.ebitdaMargin)<5?'warn':'', 'general');
+
+      // Returns & Growth
+      add('ROE',            f.roe               ? f.roe+'%'                : null, parseFloat(f.roe)>15?'good':parseFloat(f.roe)<5?'warn':'', 'general');
+      add('ROA',            f.roa               ? f.roa+'%'                : null, parseFloat(f.roa)>10?'good':parseFloat(f.roa)<2?'warn':'', 'general');
+      add('REV GROWTH',     f.revenueGrowth     ? (parseFloat(f.revenueGrowth)>=0?'+':'')+f.revenueGrowth+'%' : null, parseFloat(f.revenueGrowth)>10?'good':parseFloat(f.revenueGrowth)<0?'warn':'', 'general');
+      add('EARN GROWTH',    f.earningsGrowth    ? (parseFloat(f.earningsGrowth)>=0?'+':'')+f.earningsGrowth+'%' : null, parseFloat(f.earningsGrowth)>15?'good':parseFloat(f.earningsGrowth)<0?'warn':'', 'general');
+
+      // Balance Sheet
+      add('DEBT/EQUITY',    n(f.debtToEquity)   ? f.debtToEquity.toFixed(2) : null, f.debtToEquity>2?'warn':f.debtToEquity===0?'good':'', 'general');
+      add('CURRENT RATIO',  n(f.currentRatio)   ? f.currentRatio.toFixed(2) : null, f.currentRatio<1?'warn':f.currentRatio>2?'good':'', 'general');
+      add('TOTAL CASH',     f.totalCash, '', 'general');
+      add('TOTAL DEBT',     f.totalDebt, f.totalDebt?'warn':'', 'general');
+
+      // Dividends & Risk
+      add('DIV YIELD',      f.divYield          ? f.divYield+'%'           : null, parseFloat(f.divYield)>3?'good':'', 'general');
+      add('BETA',           n(f.beta)            ? f.beta.toFixed(2)        : null, f.beta>1.5?'warn':f.beta<0.8?'good':'', 'general');
+
+      // Ownership
+      add('INSIDER %',      f.insiderPct        ? f.insiderPct+'%'         : null, parseFloat(f.insiderPct)>50?'good':parseFloat(f.insiderPct)<5?'warn':'', 'general');
+      add('INST. %',        f.instPct           ? f.instPct+'%'            : null, parseFloat(f.instPct)>30?'good':'', 'general');
+
       return m;
     };
 
@@ -2476,6 +2833,9 @@ async function renderLiveStock(sym){
     // Now render the active tab content (Overview with metrics)
     renderCView();
     renderWLBody();
+
+    // Debug: log what came back
+    console.log(`[${sym}] endpoint: ${f._endpoint || 'FAILED'} | metrics: ${builtMetrics.length} | PE: ${f.pe} | ROE: ${f.roe} | Rev: ${f.revenue}`);
 
   } catch(e){
     if(hero) hero.innerHTML = `<div style="padding:20px;font-size:12px;color:var(--red);">Failed to load ${sym}: ${e.message}</div>`;

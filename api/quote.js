@@ -64,6 +64,7 @@ export default async function handler(req, res) {
       
       // Try multiple endpoints - Yahoo keeps changing which one works
       let r = null;
+      let _debugEndpoint = null;
       const urls = [
         `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}&corsDomain=finance.yahoo.com`,
         `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`,
@@ -76,14 +77,14 @@ export default async function handler(req, res) {
           const j = await resp.json();
           if (j?.quoteSummary?.result?.length > 0) {
             r = j.quoteSummary.result[0];
+            _debugEndpoint = url.includes('v11') ? 'v11' : url.includes('query2') ? 'query2/v10' : 'query1/v10';
             break;
           }
         } catch(_) {}
       }
 
       if (!r) {
-        // Return base data with empty fundamentals
-        return res.status(200).json({ ...base, fundamentals: {}, _debug: 'quoteSummary failed all endpoints' });
+        return res.status(200).json({ ...base, fundamentals: {}, _debug: 'quoteSummary failed all 3 endpoints' });
       }
 
       const sd  = r.summaryDetail        || {};
@@ -134,6 +135,7 @@ export default async function handler(req, res) {
         website:       ap.website || null,
         insiderPct:    fmtp(mh.insidersPercentHeld),
         instPct:       fmtp(mh.institutionsPercentHeld),
+        _endpoint:     _debugEndpoint,
       };
 
       // ── Corporate Actions from calendarEvents ──────────────────────
