@@ -43,9 +43,19 @@ export default async function handler(req, res) {
     // If full=1, also fetch quoteSummary for fundamentals
     if (full === '1') {
       const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,majorHoldersBreakdown';
-      const summaryUrl = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`;
-      const summaryRes = await fetch(summaryUrl, { headers });
-      const summaryJson = await summaryRes.json();
+      // Try v11 first (more reliable for NSE), fallback to v10
+      let summaryJson = null;
+      for (const base_url of [
+        `https://query1.finance.yahoo.com/v11/finance/quoteSummary/${ticker}?modules=${modules}&corsDomain=finance.yahoo.com&formatted=false`,
+        `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`,
+        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${modules}`,
+      ]) {
+        try {
+          const r = await fetch(base_url, { headers });
+          const j = await r.json();
+          if (j?.quoteSummary?.result?.length > 0) { summaryJson = j; break; }
+        } catch(_) {}
+      }
       const summaryResult = summaryJson?.quoteSummary?.result;
       if (!summaryResult || summaryResult.length === 0) {
         // Return base data without fundamentals rather than crashing
