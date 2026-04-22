@@ -4,33 +4,38 @@ export default async function handler(req, res) {
 
   const ticker = sym.includes('.') ? sym : `${sym}.NS`;
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=300');
+  res.setHeader('Cache-Control', 's-maxage=60');
 
   const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-  // ── GET CRUMB + COOKIE ─────────────────────────────────────────
-  // Yahoo Finance requires a crumb (CSRF token) + A3 cookie for quoteSummary
+  // Safe JSON fetch — returns null if response is HTML or invalid
+  async function safeFetch(url, opts = {}) {
+    try {
+      const r = await fetch(url, { ...opts, headers: { 'User-Agent': UA, ...(opts.headers||{}) } });
+      const text = await r.text();
+      if (text.trim().startsWith('<')) return null; // HTML error page
+      return JSON.parse(text);
+    } catch(e) { return null; }
+  }
+
+  // Get crumb + cookie for authenticated YF requests
   async function getCrumb() {
     try {
-      // Step 1: hit the consent page to get cookie
-      const c1 = await fetch('https://finance.yahoo.com/quote/' + ticker, {
-        headers: { 'User-Agent': UA, 'Accept': 'text/html' },
-        redirect: 'follow',
+      const c1 = await fetch('https://finance.yahoo.com', {
+        headers: { 'User-Agent': UA, 'Accept': 'text/html' }, redirect: 'follow'
       });
-      const cookies = c1.headers.get('set-cookie') || '';
-      // Extract A1/A3 cookie
-      const cookieStr = cookies.split(',')
+      const rawCookies = c1.headers.get('set-cookie') || '';
+      const cookieStr = rawCookies.split(',')
         .map(c => c.split(';')[0].trim())
-        .filter(c => c.startsWith('A1=') || c.startsWith('A3=') || c.startsWith('A1S=') || c.startsWith('GUC='))
+        .filter(c => /^(A1|A3|A1S|GUC)=/.test(c))
         .join('; ');
-
-      // Step 2: get crumb
+      if (!cookieStr) return null;
       const c2 = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
-        headers: { 'User-Agent': UA, 'Cookie': cookieStr },
+        headers: { 'User-Agent': UA, 'Cookie': cookieStr }
       });
-      const crumb = await c2.text();
-      if (!crumb || crumb.includes('<')) return null;
-      return { crumb: crumb.trim(), cookieStr };
+      const crumb = (await c2.text()).trim();
+      if (!crumb || crumb.startsWith('<')) return null;
+      return { crumb, cookieStr };
     } catch(e) { return null; }
   }
 
@@ -41,9 +46,7 @@ export default async function handler(req, res) {
       const intervalMap = { '1D':'5m','1W':'15m','1M':'1d','3M':'1d','6M':'1d','1Y':'1wk','3Y':'1wk' };
       const range    = rangeMap[chart] || '1mo';
       const interval = intervalMap[chart] || '1d';
-      const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}&includePrePost=false`,
-        { headers: { 'User-Agent': UA } });
-      const j = await r.json();
+      const j = await safeFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}&includePrePost=false`);
       const result = j?.chart?.result?.[0];
       if (!result) return res.status(404).json({ error: 'No chart data' });
       const ts = result.timestamp || [];
@@ -51,13 +54,15 @@ export default async function handler(req, res) {
       return res.status(200).json({ points: ts.map((t,i) => ({t:t*1000,c:cl[i]})).filter(p=>p.c!=null) });
     }
 
-    // ── PRICE ──────────────────────────────────────────────────────
-    const priceR = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`,
-      { headers: { 'User-Agent': UA } });
-    const priceJ = await priceR.json();
+    // ── PRICE — try query1 then query2 ────────────────────────────
+    let priceJ = await safeFetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`);
+    if (!priceJ?.chart?.result?.[0]) {
+      priceJ = await safeFetch(`https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`);
+    }
     const pr = priceJ?.chart?.result?.[0];
-    if (!pr) return res.status(404).json({ error: priceJ?.chart?.error?.description || 'Not found' });
-    const meta = pr.meta;
+    if (!pr) return res.status(404).json({ error: 'Price data unavailable — Yahoo Finance may be blocking this region' });
+
+    const meta  = pr.meta;
     const price = meta.regularMarketPrice;
     const prev  = meta.chartPreviousClose || meta.previousClose;
     const chg   = price - prev;
@@ -73,49 +78,41 @@ export default async function handler(req, res) {
     if (full !== '1') return res.status(200).json(base);
 
     // ── FUNDAMENTALS WITH CRUMB ────────────────────────────────────
-    const session = await getCrumb();
     const modules = 'summaryDetail,defaultKeyStatistics,financialData,assetProfile,majorHoldersBreakdown,calendarEvents';
-
-    let r = null;
-    let _src = null;
+    const session = await getCrumb();
+    let r = null, _src = null;
 
     if (session) {
       const { crumb, cookieStr } = session;
-      const qsUrls = [
-        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}&crumb=${encodeURIComponent(crumb)}`,
-        `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}&crumb=${encodeURIComponent(crumb)}`,
-      ];
-      for (const url of qsUrls) {
-        try {
-          const resp = await fetch(url, { headers: { 'User-Agent': UA, 'Cookie': cookieStr } });
-          const j = await resp.json();
-          if (j?.quoteSummary?.result?.length > 0) {
-            r = j.quoteSummary.result[0];
-            _src = url.includes('query2') ? 'crumb+q2' : 'crumb+q1';
-            break;
-          }
-        } catch(_) {}
+      for (const base_url of [
+        `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}`,
+        `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}`,
+      ]) {
+        const url = `${base_url}?modules=${encodeURIComponent(modules)}&crumb=${encodeURIComponent(crumb)}`;
+        const j = await safeFetch(url, { headers: { 'Cookie': cookieStr } });
+        if (j?.quoteSummary?.result?.length > 0) {
+          r = j.quoteSummary.result[0];
+          _src = base_url.includes('query2') ? 'crumb+q2' : 'crumb+q1';
+          break;
+        }
       }
     }
 
-    // Fallback — no crumb, try anyway
+    // Fallback without crumb
     if (!r) {
       for (const url of [
         `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}`,
         `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}`,
         `https://query1.finance.yahoo.com/v11/finance/quoteSummary/${ticker}?modules=${encodeURIComponent(modules)}&formatted=false`,
       ]) {
-        try {
-          const resp = await fetch(url, { headers: { 'User-Agent': UA } });
-          const j = await resp.json();
-          if (j?.quoteSummary?.result?.length > 0) { r = j.quoteSummary.result[0]; _src = 'no-crumb'; break; }
-        } catch(_) {}
+        const j = await safeFetch(url);
+        if (j?.quoteSummary?.result?.length > 0) { r = j.quoteSummary.result[0]; _src = 'no-crumb'; break; }
       }
     }
 
     if (!r) return res.status(200).json({ ...base, fundamentals: { _src: 'ALL_FAILED' }, corpActions: [] });
 
-    // ── PARSE ──────────────────────────────────────────────────────
+    // ── PARSE FUNDAMENTALS ─────────────────────────────────────────
     const sd = r.summaryDetail || {}, ks = r.defaultKeyStatistics || {};
     const fd = r.financialData || {}, ap = r.assetProfile || {};
     const mh = r.majorHoldersBreakdown || {}, ce = r.calendarEvents || {};
@@ -152,18 +149,19 @@ export default async function handler(req, res) {
     if (ce.earnings?.earningsDate?.[0]?.raw) {
       const lo=ce.earnings.earningsDate[0].raw, hi=ce.earnings.earningsDate[1]?.raw;
       corpActions.push({type:'earnings',label:'EARNINGS',upcoming:true,date:fmtDate(lo),
-        text:'Quarterly results expected',sub:`Expected: ${hi&&hi!==lo?fmtDate(lo)+' – '+fmtDate(hi):fmtDate(lo)}`});
+        text:'Quarterly results expected',
+        sub:'Expected: '+(hi&&hi!==lo?fmtDate(lo)+' – '+fmtDate(hi):fmtDate(lo))});
     }
     if (sd.exDividendDate?.raw) {
       const ex=sd.exDividendDate.raw;
       corpActions.push({type:'div',label:'DIVIDEND',date:fmtDate(ex),upcoming:new Date(ex*1000)>new Date(),
-        text:sd.dividendRate?.raw?`₹${sd.dividendRate.raw.toFixed(2)} per share`:'Dividend declared',
-        sub:`Ex-Date: ${fmtDate(ex)}`});
+        text:sd.dividendRate?.raw?'₹'+sd.dividendRate.raw.toFixed(2)+' per share':'Dividend declared',
+        sub:'Ex-Date: '+fmtDate(ex)});
     }
     if (ks.lastSplitDate?.raw) {
       corpActions.push({type:'split',label:'SPLIT',upcoming:false,date:fmtDate(ks.lastSplitDate.raw),
-        text:ks.lastSplitFactor?`Stock split ${ks.lastSplitFactor?.raw||ks.lastSplitFactor}`:'Stock split',
-        sub:`Effective: ${fmtDate(ks.lastSplitDate.raw)}`});
+        text:ks.lastSplitFactor?'Stock split '+(ks.lastSplitFactor?.raw||ks.lastSplitFactor):'Stock split',
+        sub:'Effective: '+fmtDate(ks.lastSplitDate.raw)});
     }
 
     return res.status(200).json({ ...base, fundamentals, corpActions });
