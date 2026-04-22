@@ -446,6 +446,151 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
 .exp-ctx-title{font-family:var(--mono);font-size:9px;color:var(--yellow);letter-spacing:2px;margin-bottom:5px;}
 .exp-ctx-text{font-size:11px;color:var(--text2);line-height:1.6;}
 .exp-verdict{padding:9px 12px;font-size:11px;font-weight:600;line-height:1.5;}
+
+/* ═══════════════════════════════════════════════
+   MOBILE RESPONSIVE — < 768px
+   ═══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Layout — single column */
+  .main {
+    grid-template-columns: 1fr !important;
+    overflow: visible;
+  }
+
+  /* Hide sidebar and right panel by default */
+  .sidebar {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 80vw;
+    max-width: 300px;
+    height: 100vh;
+    z-index: 200;
+    overflow-y: auto;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.5);
+  }
+  .sidebar.open { display: flex; flex-direction: column; }
+
+  .rightPanel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0;
+    width: 80vw;
+    max-width: 300px;
+    height: 100vh;
+    z-index: 200;
+    overflow-y: auto;
+    box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+  }
+  .rightPanel.open { display: flex; flex-direction: column; }
+
+  /* Overlay backdrop */
+  .mob-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 199;
+  }
+  .mob-overlay.open { display: block; }
+
+  /* Mobile top bar — show hamburger + watchlist toggle */
+  .mob-bar {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .mob-icon {
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text2);
+    padding: 4px 8px;
+    user-select: none;
+  }
+  .mob-icon:hover { color: var(--accent); }
+
+  /* Ticker strip — horizontal scroll */
+  .ticker-strip {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 0;
+  }
+  .ticker-strip::-webkit-scrollbar { display: none; }
+  .ticker-item { flex-shrink: 0; }
+
+  /* Topbar nav — scrollable */
+  .nav-tabs { overflow-x: auto; flex-shrink: 1; }
+  .nav-tab { padding: 0 10px; font-size: 9px; white-space: nowrap; flex-shrink: 0; }
+  .logo { font-size: 10px; letter-spacing: 2px; margin-right: 8px; flex-shrink: 0; }
+  .topbar-controls .clock { display: none; }
+
+  /* Search bar */
+  .searchbar { padding: 6px 10px; }
+  .si { font-size: 11px; }
+  .scroll-ticker { display: none; }
+
+  /* Hero price section */
+  .hero { padding: 10px 12px 8px; }
+
+  /* Center panel fills full width */
+  .centerPanel {
+    width: 100%;
+    overflow-y: auto;
+  }
+
+  /* Metrics grid — 2 columns on mobile */
+  .mg { grid-template-columns: repeat(2, 1fr) !important; gap: 4px; }
+
+  /* Metric cards — slightly smaller */
+  .mc { padding: 7px 8px; }
+  .mc-n { font-size: 7.5px; }
+  .mc-v { font-size: 13px; }
+
+  /* Price history table */
+  .ph-row { font-size: 10px; padding: 5px 0; }
+
+  /* Chart */
+  .chart-tfs { gap: 4px; padding: 6px 10px; }
+  .tf { padding: 3px 8px; font-size: 9px; }
+
+  /* Tabs */
+  .ctab { padding: 0 10px; font-size: 9px; }
+
+  /* About section */
+  .about-text { font-size: 11px; }
+
+  /* Right panel content */
+  .rp-tabs { font-size: 9px; }
+
+  /* Watchlist items */
+  .wl-item { padding: 7px 10px; }
+
+  /* Modals — full screen on mobile */
+  .modal-box {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+}
+
+/* Hide mob-bar on desktop */
+.mob-bar { display: none; }
+
+@media (max-width: 480px) {
+  .mg { grid-template-columns: 1fr 1fr !important; }
+  .mc-v { font-size: 12px; }
+  .topbar-row1 { height: 36px; }
+  .ticker-strip { height: 22px; }
+  .ticker-val { font-size: 10px; }
+  .ticker-chg { font-size: 8.5px; }
+}
 </style>
 </head>
 <body>
@@ -514,10 +659,16 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
 </div>
 
 <!-- SEARCH -->
+<div class="mob-overlay" id="mobOverlay" onclick="closeMobPanels()"></div>
+<div class="mob-bar">
+  <div class="mob-icon" onclick="toggleMobSidebar()" title="Watchlists">☰</div>
+  <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;">⬡ OPENTERMINAL</div>
+  <div class="mob-icon" onclick="toggleMobRight()" title="Filings & Alerts">⬡</div>
+</div>
 <div class="searchbar">
   <div class="sw">
     <span class="si-icon">⌕</span>
-    <input class="si" id="si" placeholder="Search any of 5000+ listed companies — RELIANCE, HDFC, ZOMATO..." autocomplete="off"/>
+    <input class="si" id="si" placeholder="Search any of 5000+ listed companies — RELIANCE, HDFC, ETERNAL..." autocomplete="off"/>
     <div class="sr" id="sr"></div>
   </div>
   <span class="sh">Click any metric to understand it &nbsp;·&nbsp; F8 = AI Research &nbsp;·&nbsp; All data free & open source 🇮🇳</span>
@@ -590,7 +741,7 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
     <div class="ai-chat" id="aiChat"></div>
     <div class="ai-thinking" id="aiThinking">RESEARCHING <span class="blink">▮</span></div>
     <div class="ai-irow">
-      <input class="ai-inp" id="aiInp" placeholder="Ask anything — plain language, no jargon. e.g. 'Is Zomato safe to invest?'"/>
+      <input class="ai-inp" id="aiInp" placeholder="Ask anything — plain language, no jargon. e.g. 'Is Eternal safe to invest?'"/>
       <button class="ai-sub" onclick="askAI()">ASK ▸</button>
     </div>
   </div>
@@ -708,7 +859,7 @@ body.light .overlay-bg{background:rgba(150,180,210,.7);}
 // ═══════════════════════════════════════════════
 const DB = {};
 // Seed watchlist with default stocks — prices/fundamentals loaded live
-const DEFAULT_STOCKS = ['RELIANCE','TCS','HDFCBANK','ZOMATO','SMCAP499'];
+const DEFAULT_STOCKS = ['RELIANCE','TCS','HDFCBANK','ETERNAL','SMCAP499'];
 
 
 // ═══════════════════════════════════════════════
@@ -792,7 +943,7 @@ const MKB = {
 // ═══════════════════════════════════════════════
 // WATCHLISTS STATE
 // ═══════════════════════════════════════════════
-let watchlists=[{name:'MY STOCKS',stocks:['RELIANCE','TCS','HDFCBANK','ZOMATO']},{name:'NIFTY PICKS',stocks:['INFY','SBIN','BHARTIARTL']},{name:'HIGH RISK',stocks:['ZOMATO','ADANIENT']}];
+let watchlists=[{name:'MY STOCKS',stocks:['RELIANCE','TCS','HDFCBANK','ETERNAL']},{name:'NIFTY PICKS',stocks:['INFY','SBIN','BHARTIARTL']},{name:'HIGH RISK',stocks:['ETERNAL','ADANIENT']}];
 let activeWL=0,activeSym='RELIANCE',activeCtab='overview',activeRtab='filings',wlMode='add';
 
 // Portfolio state
@@ -943,7 +1094,7 @@ function selectStock(sym){
 // Yahoo Finance suffix map — SME stocks not available
 const YF_SUFFIX = {
   RELIANCE:'RELIANCE.NS', TCS:'TCS.NS', HDFCBANK:'HDFCBANK.NS',
-  ZOMATO:'ZOMATO.NS', INFY:'INFY.NS', WIPRO:'WIPRO.NS',
+  ETERNAL:'ETERNAL.NS', INFY:'INFY.NS', WIPRO:'WIPRO.NS',
   ICICIBANK:'ICICIBANK.NS', KOTAKBANK:'KOTAKBANK.NS',
   BAJFINANCE:'BAJFINANCE.NS', AXISBANK:'AXISBANK.NS',
   SBIN:'SBIN.NS', BHARTIARTL:'BHARTIARTL.NS', ITC:'ITC.NS',
@@ -1679,7 +1830,7 @@ function renderCalendarView(){
   </div>`).join('');
 
   const corpActions=[
-    {date:'Mar 15',sym:'ZOMATO',event:'AGM FY25',type:'AGM'},
+    {date:'Mar 15',sym:'ETERNAL',event:'AGM FY25',type:'AGM'},
     {date:'Mar 20',sym:'SMCAP499',event:'AGM FY25',type:'AGM'},
     {date:'Apr 19',sym:'HDFCBANK',event:'Final Dividend ₹19.5 — Ex-Date',type:'DIV'},
     {date:'Apr 22',sym:'TCS',event:'Final Dividend ₹28 — Ex-Date Expected',type:'DIV'},
@@ -2440,7 +2591,7 @@ const NSE_MASTER = [
   {sym:'SBILIFE',name:'SBI Life Insurance Co Ltd',sector:'Insurance'},
   {sym:'APOLLOHOSP',name:'Apollo Hospitals Enterprise Ltd',sector:'Healthcare'},
   {sym:'DIVISLAB',name:'Divis Laboratories Ltd',sector:'Pharma'},
-  {sym:'ZOMATO',name:'Eternal Ltd (Zomato)',sector:'Consumer Tech'},
+  {sym:'ETERNAL',name:'Eternal Ltd',sector:'Consumer Tech'},
   {sym:'BEL',name:'Bharat Electronics Ltd',sector:'Defence'},
   {sym:'TRENT',name:'Trent Ltd (Zudio)',sector:'Retail'},
   {sym:'BAJAJ-AUTO',name:'Bajaj Auto Ltd',sector:'Auto'},
@@ -2736,7 +2887,7 @@ const FALLBACK_MASTER = [
   {sym:'BAJFINANCE',name:'Bajaj Finance Ltd',sector:'NBFC'},
   {sym:'SUNPHARMA',name:'Sun Pharmaceutical Industries',sector:'Pharma'},
   {sym:'TATAMOTORS',name:'Tata Motors Ltd',sector:'Auto'},
-  {sym:'ZOMATO',name:'Eternal Ltd (formerly Zomato)',sector:'Consumer Tech'},
+  {sym:'ETERNAL',name:'Eternal Ltd',sector:'Consumer Tech'},
   {sym:'APOLLOHOSP',name:'Apollo Hospitals Enterprise Ltd',sector:'Healthcare'},
   {sym:'APOLLOTYRE',name:'Apollo Tyres Ltd',sector:'Auto Ancillary'},
   {sym:'LEELAVENTURES',name:'Hotel Leelaventure Ltd (Leela Palaces)',sector:'Hospitality'},
@@ -2871,6 +3022,7 @@ setTimeout(()=>{selectStock('RELIANCE');},80);
 // LIVE STOCK VIEW — for stocks not in DB
 // ═══════════════════════════════════════════════
 async function renderLiveStock(sym){
+  closeMobPanels(); // close drawers on mobile when stock selected
   // Always restore terminal shell (other tabs nuke centerPanel)
   const panel = document.getElementById('centerPanel');
   if(!document.getElementById('stockHero')){
@@ -2986,10 +3138,41 @@ async function renderLiveStock(sym){
     console.log(`[${sym}] src: ${f._src||'FAILED'} | metrics: ${builtMetrics.length} | PE: ${f.pe} | ROE: ${f.roe} | Rev: ${f.revenue}`);
 
   } catch(e){
-    if(hero) hero.innerHTML = `<div style="padding:20px;font-size:12px;color:var(--red);">Failed to load ${sym}: ${e.message}</div>`;
-    if(cview) cview.innerHTML = '';
+    if(hero) hero.innerHTML = '<div style="padding:20px;font-size:12px;color:var(--red);font-family:var(--mono);">⬡ Failed to load ' + sym + ': ' + e.message + '</div>';
+    if(cview) cview.innerHTML = '<div style="padding:40px 20px;text-align:center;color:var(--text3);font-family:var(--mono);font-size:11px;">'
+      + '<div style="font-size:24px;margin-bottom:12px;">⬡</div>'
+      + '<div style="margin-bottom:8px;">Could not load data for <span style="color:var(--accent);">' + sym + '</span></div>'
+      + '<div style="font-size:10px;color:var(--text3);">' + e.message + '</div>'
+      + '<div style="margin-top:16px;font-size:10px;">The ticker may have changed or been delisted.<br>Try searching for the company name.</div>'
+      + '</div>';
   }
 }
+
+// ── MOBILE PANEL TOGGLES ──────────────────────────────────────
+function toggleMobSidebar(){
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('mobOverlay');
+  const rp = document.querySelector('.rightPanel');
+  if(!sb) return;
+  const isOpen = sb.classList.contains('open');
+  closeMobPanels();
+  if(!isOpen){ sb.classList.add('open'); ov.classList.add('open'); }
+}
+function toggleMobRight(){
+  const rp = document.querySelector('.rightPanel');
+  const ov = document.getElementById('mobOverlay');
+  const sb = document.querySelector('.sidebar');
+  if(!rp) return;
+  const isOpen = rp.classList.contains('open');
+  closeMobPanels();
+  if(!isOpen){ rp.classList.add('open'); ov.classList.add('open'); }
+}
+function closeMobPanels(){
+  document.querySelector('.sidebar')?.classList.remove('open');
+  document.querySelector('.rightPanel')?.classList.remove('open');
+  document.getElementById('mobOverlay')?.classList.remove('open');
+}
+// Close panels on stock select (mobile UX)
 </script>
 </body>
 </html>
