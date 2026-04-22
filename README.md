@@ -1,79 +1,95 @@
 # ⬡ OpenTerminal
 
-> **Bloomberg's data. Groww's soul.**  
-> A free, open-source financial intelligence terminal for Indian retail investors.
+> **Free. Open Source. Built for India.**  
+> A Bloomberg-style financial terminal for Indian retail investors — no paywall, no login, no ads.
 
-**Live:** [open-terminal-pearl.vercel.app](https://open-terminal-pearl.vercel.app)
-
----
-
-## The Problem
-
-5,000+ companies are listed on NSE/BSE. Publicly available data exists — but it's inaccessible and undigested for most retail investors. Brokers have a conflict of interest. Financial media is noise.
-
-The stock is not the problem. The person buying it is.
-
-OpenTerminal has no commercial interest in what you buy — only in you buying well.
+**Live → [open-terminal-pearl.vercel.app](https://open-terminal-pearl.vercel.app)**
 
 ---
 
-## What It Does
+## Why
 
-OpenTerminal gives retail investors the same quality of information that institutional investors have, explained in plain language.
+Bloomberg Terminal costs $24,000/year. Retail investors in India have no equivalent.
 
-### 5 Layers of Understanding
+OpenTerminal gives you institutional-quality data — live prices, 20+ fundamental metrics, macro dashboard, AI research — completely free, in your browser, with no account required.
 
-**1. Understand the Company**
-- Key metrics with plain-language explanations (click any metric)
-- Company Health Score
-- Price history — ATH, ATL, 52W High/Low
-- Candlestick chart with multiple timeframes
-- AI Research Summary
-- Automatic warnings — illiquidity, promoter pledge, valuation
+---
 
-**2. Understand the Context**
-- Sector intelligence — what sector does this company operate in, and what drives it?
-- Peer comparison across large/mid/small cap
-- Shareholding trends — FII/DII/Promoter movements over 4 quarters
-- Corporate actions — dividends, bonuses, splits, AGMs
+## What's Working Today
 
-**3. Understand the Timing**
-- Macro Dashboard — India + 6 global economies (Repo Rate, CPI, GDP, FII Flow, US Fed, Brent Crude...)
-- Economic Calendar — upcoming events that will move markets
-- Bond Market — yield curve and what it means for your stocks
+### Terminal
+- **Live stock data** — Price, P&L, Volume for 317 Nifty 500 stocks
+- **20 fundamental metrics** — Market Cap, P/E, Forward P/E, P/B, EV/EBITDA, EPS, Book Value, Revenue, Gross Margin, Profit Margin, EBITDA Margin, ROE, ROA, Rev Growth, Earnings Growth, Debt/Equity, Total Cash, Total Debt, Div Yield, Beta
+- **Ownership data** — Insider % and Institutional %
+- **Price history** — ATH, ATL, 52W High/Low, Day High/Low
+- **Interactive chart** — 1D / 1W / 1M / 3M / 6M / 1Y / 3Y timeframes
+- **About** — Company description, employees, website, sector, industry
+- **Corp Actions** — Upcoming earnings date, ex-dividend date, last stock split
+- **AI Research** — Plain English stock analysis powered by Gemini (bring your own free API key)
+- **Metric explainer** — Click any metric to understand what it means
 
-**4. Understand Yourself**
-- Investor Fitness Check — stock-specific risk questions before you add to portfolio
-- Portfolio Tracker — buy price, P&L, STCG/LTCG tax estimate
-- Multiple watchlists
+### Header Bar (Live)
+NIFTY 50 · GIFT NIFTY · SENSEX · ₹/$ · GOLD · SILVER · BRENT — all live
 
-**5. Stay Informed**
-- Smart Alerts — promoter pledge changes, dividend announcements, unusual volume
-- Instant Terminal — verified investor messaging (coming soon)
-- MF / ETF tab — live NAV data from AMFI, 1Y/3Y returns, NAV history chart
+### Macro Dashboard
+- Indian indices — Nifty 50, Sensex, Bank Nifty
+- Global markets — S&P 500, Nasdaq, Dow, FTSE, Nikkei, Hang Seng
+- Currencies — USD/INR, EUR/INR, GBP/INR
+- Commodities — Brent Crude, Gold, Silver
+- Bonds — US 10Y, India 10Y GSec
+- FII/DII flows — Daily institutional buying/selling
+- RBI data — Repo Rate, CPI, GDP, CRR, Forex Reserves
+
+### Other
+- Multiple watchlists + portfolio tracker
+- Search across 317 NSE-listed companies
+
+---
+
+## Coming Soon (Contributions Welcome)
+
+- [ ] Shareholding tab — FII/DII/Promoter quarterly trends
+- [ ] Peer comparison — sector peers side by side
+- [ ] Bonds tab — live yield curve
+- [ ] F&O data — OI, PCR, IV
+- [ ] Mobile responsive layout
+- [ ] MF / ETF tab — live AMFI NAV data
+- [ ] Smart Alerts — promoter pledge, unusual volume
+- [ ] Expand stock list to full Nifty 500 + BSE 500
+
+---
+
+## AI Research Setup
+
+OpenTerminal uses Google Gemini for AI stock analysis. Each user brings their own free API key — your key stays in your browser, never on our servers.
+
+1. Get a free key at [aistudio.google.com](https://aistudio.google.com) — 1500 calls/day free, no credit card
+2. Open any stock → Overview tab → click **↻ REFRESH** in the AI Research section
+3. Paste your key when prompted — saved locally in your browser, never shared
 
 ---
 
 ## Data Sources
 
-| Source | Data | Cost |
-|--------|------|------|
-| AMFI (`api.mfapi.in`) | Mutual Fund NAVs | Free |
-| Yahoo Finance | Stock prices (15-min delayed) | Free |
-| Anthropic Claude API | AI research summaries, chat | Pay per use |
-| RBI website | Repo rate, inflation | Free |
+| Source | Data |
+|--------|------|
+| Yahoo Finance | Live prices, fundamentals, charts |
+| NSE India | FII/DII daily flows |
+| Google Gemini | AI research (user's own key) |
+| RBI | Repo rate, CPI, GDP (updated at MPC meetings) |
+
+All data is free. No paid APIs.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** Vanilla HTML/CSS/JS — no framework, no build step
-- **Backend:** Vercel Serverless Functions (Node.js)
-- **AI:** Anthropic Claude (`claude-sonnet-4-20250514`)
-- **Hosting:** Vercel (free tier)
-- **Fonts:** Space Mono + DM Sans
+- **Frontend** — Vanilla HTML/CSS/JS. No framework, no build step, no npm
+- **Backend** — Vercel Serverless Functions (Node.js) — 2 files: `api/quote.js` and `api/macro.js`
+- **Hosting** — Vercel free tier
+- **Fonts** — Space Mono + DM Sans
 
-Single file frontend. Zero dependencies. Anyone can read, fork, and contribute.
+Single HTML file frontend. Two API files. Read the entire codebase in an afternoon.
 
 ---
 
@@ -82,49 +98,48 @@ Single file frontend. Zero dependencies. Anyone can read, fork, and contribute.
 ```bash
 git clone https://github.com/AbhyudayPS01/OpenTerminal.git
 cd OpenTerminal
-# For live prices (needs Vercel CLI):
+
+# With live prices (requires Vercel CLI):
 npm i -g vercel
 vercel dev
-# OR just open index.html — everything works except live stock prices
+
+# Without live prices (everything else works):
 open index.html
 ```
 
 ---
 
-## Roadmap
-
-- [ ] Real NSE/BSE data via official APIs
-- [ ] MF X-Ray — see exactly what stocks your SIP owns
-- [ ] Mobile responsive layout
-- [ ] User accounts + watchlist sync
-- [ ] Broker integration — "Buy on Zerodha" referral
-- [ ] Smart Alerts backend (currently demo data)
-- [ ] Expand stock database beyond Nifty 50
-
----
-
 ## Contributing
 
-This is MIT licensed. Fork it, improve it, submit a PR.
+MIT licensed. Fork it, fix it, improve it, submit a PR.
 
-Areas that need the most help:
-- Real NSE/BSE data integration
-- Mobile CSS
-- More stock data (filings, shareholding, corporate actions)
-- Testing across browsers
+**Codebase:**
+- `index.html` — entire frontend
+- `api/quote.js` — stock price + fundamentals
+- `api/macro.js` — macro dashboard data
+
+**Most needed:**
+- Mobile CSS — India is mobile-first, biggest gap right now
+- Shareholding tab — BSE/NSE quarterly data
+- Peer comparison
+- F&O data — OI, PCR, IV (biggest differentiator if someone builds this)
+- Full Nifty 500 + BSE 500 stock coverage
+
+No gatekeeping. Open a PR.
 
 ---
 
 ## Philosophy
 
-> *"Curious, not intimidated."*
+> *The stock is not the problem. The person buying it is.*
 
-Every number in OpenTerminal invites exploration. Click any metric and understand what it means for this specific company in this specific sector. No jargon, no noise, no conflict of interest.
+OpenTerminal has no commercial interest in what you buy — only in you buying well.
 
-OpenTerminal will always be free for users. MIT licensed. No ads.
+No ads. No broker referrals. No paywalls. MIT licensed forever.
 
 ---
 
 ## License
 
-MIT © 2025 OpenTerminal Contributors
+MIT © 2026 OpenTerminal Contributors  
+Built with ♥ in Ankleshwar, Gujarat, India
