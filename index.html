@@ -2270,69 +2270,73 @@ async function askAI(){
 function askAIQuery(q){openModal('aiOverlay');document.getElementById('aiInp').value=q;setTimeout(()=>askAI(),150);}
 document.getElementById('aiInp').addEventListener('keydown',e=>{if(e.key==='Enter')askAI();});
 
-async // ── GEMINI API KEY MANAGEMENT ─────────────────────────────────
+// ── GEMINI API KEY MANAGEMENT ─────────────────────────────────
 function getGeminiKey(){ return localStorage.getItem('ot_gemini_key')||''; }
 function saveGeminiKey(k){ localStorage.setItem('ot_gemini_key', k.trim()); }
 
 function promptGeminiKey(){
   const existing = getGeminiKey();
-  const k = window.prompt(
-    existing
-      ? 'Update your Gemini API key (leave blank to keep current):'
-      : 'Enter your Gemini API key to enable AI Research.\n\nGet one free at: aistudio.google.com\n(Free tier: 1500 calls/day)',
-    existing || ''
-  );
-  if(k === null) return false; // cancelled
-  if(k.trim()) { saveGeminiKey(k); return true; }
-  return !!existing; // keep existing if blank
+  const msg = existing
+    ? 'Update your Gemini API key (leave blank to keep current):'
+    : 'Enter your Gemini API key to enable AI Research.\n\nGet one free at: aistudio.google.com\n(Free tier: 1500 calls/day)';
+  const k = window.prompt(msg, existing || '');
+  if(k === null) return false;
+  if(k.trim()){ saveGeminiKey(k); return true; }
+  return !!existing;
 }
 
 async function refreshAI(){
   const s = DB[activeSym]; if(!s) return;
   const el = document.getElementById('aiSummary'); if(!el) return;
 
-  // Check for API key
   let key = getGeminiKey();
   if(!key){
     const got = promptGeminiKey();
-    if(!got){ el.innerHTML = \`<span style="color:var(--text3);font-size:11px;">⬡ Add your free Gemini API key to enable AI Research.<br><span style="color:var(--accent);cursor:pointer;" onclick="promptGeminiKey();refreshAI()">+ Add API Key</span></span>\`; return; }
+    if(!got){
+      el.innerHTML = '<span style="color:var(--text3);font-size:11px;">Add your free Gemini API key to enable AI Research. <span style="color:var(--accent);cursor:pointer;" onclick="promptGeminiKey();refreshAI()">+ Add API Key</span></span>';
+      return;
+    }
     key = getGeminiKey();
   }
 
-  el.innerHTML = \`<span style="color:var(--accent);font-family:var(--mono);font-size:10px;letter-spacing:2px;"><span class="ai-dot"></span> ANALYSING ${activeSym}...</span>\`;
+  el.innerHTML = '<span style="color:var(--accent);font-family:var(--mono);font-size:10px;letter-spacing:2px;"><span class="ai-dot"></span> ANALYSING...</span>';
 
-  // Build prompt with live fundamentals
   const f = s.metrics || [];
-  const mMap = {}; f.forEach(m => mMap[m.n] = m.v);
-  const prompt = \`You are a concise stock research analyst for Indian retail investors.
+  const mMap = {};
+  f.forEach(function(m){ mMap[m.n] = m.v; });
 
-Stock: \${s.name} (\${activeSym}) — NSE Listed
-Sector: \${s.sector} | \${s.industry||''}
-Price: ₹\${s.price?.toLocaleString('en-IN')} | Change today: \${s.pct?.toFixed(2)}%
-
-Live Fundamentals:
-- Market Cap: \${mMap['MARKET CAP']||'N/A'}
-- P/E (TTM): \${mMap['P/E (TTM)']||'N/A'} | Forward P/E: \${mMap['FORWARD P/E']||'N/A'}
-- P/B: \${mMap['P/B RATIO']||'N/A'} | EV/EBITDA: \${mMap['EV/EBITDA']||'N/A'}
-- Revenue: \${mMap['REVENUE']||'N/A'} | Net Income: \${mMap['NET INCOME']||'N/A'}
-- Profit Margin: \${mMap['PROFIT MARGIN']||'N/A'}% | ROE: \${mMap['ROE']||'N/A'}%
-- Debt/Equity: \${mMap['DEBT/EQUITY']||'N/A'} | Beta: \${mMap['BETA']||'N/A'}
-- Revenue Growth: \${mMap['REV GROWTH']||'N/A'}% | Earnings Growth: \${mMap['EARN GROWTH']||'N/A'}%
-- Div Yield: \${mMap['DIV YIELD']||'N/A'}%
-- Insider Holding: \${mMap['INSIDER %']||'N/A'} | Institutional: \${mMap['INST. %']||'N/A'}
-
-About: \${s.description?.slice(0,300)||''}
-
-Write a 5-sentence research note:
-1. What the company does (1 sentence, simple)
-2. What the numbers say — growth, margins, valuation vs sector (2 sentences)  
-3. Key risk a retail investor should know (1 sentence)
-4. Plain verdict: attractive / fairly valued / expensive / avoid — and why (1 sentence)
-
-Be direct. Use plain English. No disclaimers. No markdown. No bullet points. Just 5 clean sentences.\`;
+  const lines = [
+    'You are a concise stock research analyst for Indian retail investors.',
+    '',
+    'Stock: ' + s.name + ' (' + activeSym + ') — NSE Listed',
+    'Sector: ' + s.sector + ' | ' + (s.industry||''),
+    'Price: Rs.' + (s.price ? s.price.toLocaleString('en-IN') : 'N/A') + ' | Change today: ' + (s.pct ? s.pct.toFixed(2) : '0') + '%',
+    '',
+    'Live Fundamentals:',
+    '- Market Cap: ' + (mMap['MARKET CAP']||'N/A'),
+    '- P/E (TTM): ' + (mMap['P/E (TTM)']||'N/A') + ' | Forward P/E: ' + (mMap['FORWARD P/E']||'N/A'),
+    '- P/B: ' + (mMap['P/B RATIO']||'N/A') + ' | EV/EBITDA: ' + (mMap['EV/EBITDA']||'N/A'),
+    '- Revenue: ' + (mMap['REVENUE']||'N/A') + ' | Net Income: ' + (mMap['NET INCOME']||'N/A'),
+    '- Profit Margin: ' + (mMap['PROFIT MARGIN']||'N/A') + ' | ROE: ' + (mMap['ROE']||'N/A'),
+    '- Debt/Equity: ' + (mMap['DEBT/EQUITY']||'N/A') + ' | Beta: ' + (mMap['BETA']||'N/A'),
+    '- Rev Growth: ' + (mMap['REV GROWTH']||'N/A') + ' | Earnings Growth: ' + (mMap['EARN GROWTH']||'N/A'),
+    '- Div Yield: ' + (mMap['DIV YIELD']||'N/A'),
+    '- Insider: ' + (mMap['INSIDER %']||'N/A') + ' | Institutional: ' + (mMap['INST. %']||'N/A'),
+    '',
+    'About: ' + (s.description ? s.description.slice(0,300) : ''),
+    '',
+    'Write a 5-sentence research note:',
+    '1. What the company does (1 sentence, simple)',
+    '2. What the numbers say — growth, margins, valuation (2 sentences)',
+    '3. Key risk a retail investor should know (1 sentence)',
+    '4. Plain verdict: attractive / fairly valued / expensive / avoid — and why (1 sentence)',
+    '',
+    'Be direct. Plain English. No disclaimers. No markdown. No bullet points. Just 5 clean sentences.'
+  ];
+  const prompt = lines.join('\n');
 
   try {
-    const url = \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=\${key}\`;
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key;
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2345,26 +2349,27 @@ Be direct. Use plain English. No disclaimers. No markdown. No bullet points. Jus
 
     if(data.error){
       if(data.error.code === 400 || data.error.code === 403){
-        el.innerHTML = \`<span style="color:var(--red);font-size:11px;">Invalid API key. <span style="color:var(--accent);cursor:pointer;" onclick="promptGeminiKey();refreshAI()">Update key</span></span>\`;
+        el.innerHTML = '<span style="color:var(--red);font-size:11px;">Invalid API key. <span style="color:var(--accent);cursor:pointer;" onclick="promptGeminiKey();refreshAI()">Update key</span></span>';
         return;
       }
       throw new Error(data.error.message);
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if(!text) throw new Error('Empty response');
+    const text = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
+    if(!text) throw new Error('Empty response from Gemini');
 
     s.aiS = text;
-    el.innerHTML = \`<p style="font-family:var(--sans);font-size:12.5px;line-height:1.7;color:var(--text);margin:0;">\${text}</p>
-      <div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text3);">
-        ⬡ AI Research · Powered by Gemini · Based on live data · Not financial advice
-        <span style="float:right;color:var(--accent);cursor:pointer;" onclick="promptGeminiKey()">⚙ Change API Key</span>
-      </div>\`;
+    el.innerHTML = '<p style="font-family:var(--sans);font-size:12.5px;line-height:1.7;color:var(--text);margin:0;">' + text + '</p>'
+      + '<div style="margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text3);">'
+      + 'AI Research · Gemini · Live data · Not financial advice'
+      + '<span style="float:right;color:var(--accent);cursor:pointer;" onclick="promptGeminiKey()"> Change API Key</span>'
+      + '</div>';
 
   } catch(e) {
-    el.innerHTML = \`<span style="color:var(--text3);font-size:11px;">Analysis failed: \${e.message} · <span style="color:var(--accent);cursor:pointer;" onclick="refreshAI()">Retry</span></span>\`;
+    el.innerHTML = '<span style="color:var(--text3);font-size:11px;">Analysis failed: ' + e.message + ' <span style="color:var(--accent);cursor:pointer;" onclick="refreshAI()">Retry</span></span>';
   }
 }
+
 
 // ═══════════════════════════════════════════════
 // INSTANT TERMINAL
